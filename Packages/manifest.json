@@ -1,5 +1,6 @@
 {
   "dependencies": {
+    "com.coplaydev.coplay": "https://github.com/CoplayDev/unity-plugin.git",
     "com.unity.ai.assistant": "2.7.0-pre.3",
     "com.unity.ai.inference": "2.6.1",
     "com.unity.collab-proxy": "2.12.4",
