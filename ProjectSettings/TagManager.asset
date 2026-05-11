@@ -3,7 +3,14 @@
 --- !u!78 &1
 TagManager:
   serializedVersion: 2
-  tags: []
+  tags:
+  - Pot
+  - SoilPile
+  - Pickup
+  - Plant
+  - BossPlant
+  - Door
+  - Key
   layers:
   - Default
   - TransparentFX
