@@ -37,6 +37,32 @@ public class LevelBuilder : MonoBehaviour
         BuildLevel();
     }
 
+    private void Start()
+    {
+        BakeNavMesh();
+    }
+
+    private void BakeNavMesh()
+    {
+        System.Type surfaceType = System.Type.GetType("Unity.AI.Navigation.NavMeshSurface, Unity.AI.Navigation");
+        if (surfaceType == null)
+        {
+            Debug.LogWarning("[LevelBuilder] Package 'AI Navigation' introuvable. Installez-le pour activer le NavMesh.");
+            return;
+        }
+
+        Component surface = GetComponent(surfaceType) ?? gameObject.AddComponent(surfaceType);
+
+        // CollectObjects.All = 0
+        var collectField = surfaceType.GetField("collectObjects");
+        if (collectField != null) collectField.SetValue(surface, 0);
+
+        var buildMethod = surfaceType.GetMethod("BuildNavMesh");
+        if (buildMethod != null) buildMethod.Invoke(surface, null);
+
+        Debug.Log("[LevelBuilder] NavMesh baked.");
+    }
+
     private void BuildLevel()
     {
         BuildFloor();
