@@ -88,56 +88,361 @@ public class LevelBuilder : MonoBehaviour
     // ─────────────────────────────────────────────
     // GROSSE MAP : grand sol herbeux qui entoure la serre
     // ─────────────────────────────────────────────
+    private const float MapSize = 200f;       // 200 x 200 m
+    private const float MapHalf = MapSize / 2f;
+
+    private Transform outdoorRoot;
+
+    // Cache des matériaux convertis URP → Standard (pour éviter de recréer N fois le même)
+    private Dictionary<Material, Material> fixedMaterialCache = new Dictionary<Material, Material>();
+
+    // Remplace tout matériau au shader inconnu/URP par un Standard équivalent.
+    // Fallback color permet de garantir une teinte cohérente si la conversion échoue.
+    private void FixPrefabMaterials(GameObject go, Color fallback)
+    {
+        Shader std = Shader.Find("Standard");
+        if (std == null) return;
+        foreach (var rend in go.GetComponentsInChildren<Renderer>())
+        {
+            Material[] mats = rend.sharedMaterials;
+            bool changed = false;
+            for (int i = 0; i < mats.Length; i++)
+            {
+                Material src = mats[i];
+                if (src == null) continue;
+                if (src.shader == std) continue;
+
+                if (!fixedMaterialCache.TryGetValue(src, out Material nm))
+                {
+                    nm = new Material(std);
+                    // Récupère la couleur (URP _BaseColor, sinon _Color, sinon fallback)
+                    Color c = fallback;
+                    if (src.HasProperty("_BaseColor")) c = src.GetColor("_BaseColor");
+                    else if (src.HasProperty("_Color")) c = src.GetColor("_Color");
+                    // Si la teinte est presque noire ou rose magenta, on retombe sur le fallback
+                    if (c.maxColorComponent < 0.05f || (c.r > 0.9f && c.g < 0.1f && c.b > 0.9f))
+                        c = fallback;
+                    nm.color = c;
+
+                    Texture tex = null;
+                    if (src.HasProperty("_BaseMap")) tex = src.GetTexture("_BaseMap");
+                    else if (src.HasProperty("_MainTex")) tex = src.GetTexture("_MainTex");
+                    if (tex != null) nm.mainTexture = tex;
+
+                    nm.SetFloat("_Glossiness", 0.08f);
+                    nm.SetFloat("_Metallic", 0f);
+
+                    fixedMaterialCache[src] = nm;
+                }
+                mats[i] = nm;
+                changed = true;
+            }
+            if (changed) rend.sharedMaterials = mats;
+        }
+    }
+
     private void BuildOutdoorTerrain()
     {
-        const float mapSize = 200f; // 200 x 200 m
+        outdoorRoot = new GameObject("Outdoor").transform;
+        outdoorRoot.parent = transform;
 
         GameObject ground = GameObject.CreatePrimitive(PrimitiveType.Plane);
         ground.name = "OutdoorGround";
-        ground.transform.parent = transform;
-        ground.transform.position = new Vector3(0, -0.2f, 0); // juste en-dessous du sol de la serre
-        ground.transform.localScale = new Vector3(mapSize / 10f, 1f, mapSize / 10f); // Plane Unity = 10x10
+        ground.transform.parent = outdoorRoot;
+        ground.transform.position = new Vector3(0, -0.2f, 0);
+        ground.transform.localScale = new Vector3(MapSize / 10f, 1f, MapSize / 10f);
         ground.isStatic = true;
 
-        // Tente de charger le matériau PP_Ground du Nature Pack (après import du URP→Built-in)
+        Shader std = Shader.Find("Standard");
         Material grass = Resources.Load<Material>("Materials/PP_Ground");
         if (grass == null) grass = Resources.Load<Material>("PP_Ground");
-        if (grass == null) grass = GetMaterial("Grass", new Color(0.42f, 0.62f, 0.28f), 0f, 0.05f);
+        // Si le PP_Ground utilise un shader URP introuvable, on retombe sur un Standard vert
+        if (grass == null || (std != null && grass.shader != std))
+            grass = GetMaterial("Grass", new Color(0.34f, 0.55f, 0.25f), 0f, 0.05f);
         ground.GetComponent<Renderer>().sharedMaterial = grass;
 
-        // Quelques arbres décoratifs autour de la serre, si on a chargé un prefab valide
-        TryScatterDecorations();
+        BuildGroundPatches();
+        BuildEntrancePath();
+        BuildPerimeterFence();
+        PopulateOutdoorMap();
     }
 
-    private void TryScatterDecorations()
+    // Patchs de couleur (terre nue, prairie, mousse foncée) pour casser le grand plan vert
+    private void BuildGroundPatches()
     {
-        string[] candidatePaths = {
+        Material[] mats = {
+            GetMaterial("PatchDarkGrass", new Color(0.30f, 0.48f, 0.22f), 0f, 0.04f),
+            GetMaterial("PatchDryEarth",  new Color(0.46f, 0.36f, 0.22f), 0f, 0.05f),
+            GetMaterial("PatchMoss",      new Color(0.28f, 0.42f, 0.18f), 0f, 0.04f),
+            GetMaterial("PatchSand",      new Color(0.78f, 0.70f, 0.50f), 0f, 0.05f),
+        };
+
+        int patchCount = 18;
+        for (int i = 0; i < patchCount; i++)
+        {
+            Vector3 pos = RandomOutdoorPoint(out bool valid, 8f, MapHalf - 6f);
+            if (!valid) continue;
+
+            GameObject patch = GameObject.CreatePrimitive(PrimitiveType.Plane);
+            patch.name = "GroundPatch";
+            patch.transform.parent = outdoorRoot;
+            patch.transform.position = new Vector3(pos.x, -0.18f, pos.z); // au-dessus du sol
+            float r = Random.Range(0.6f, 1.6f);
+            patch.transform.localScale = new Vector3(r, 1f, r * Random.Range(0.7f, 1.3f));
+            patch.transform.rotation = Quaternion.Euler(0, Random.Range(0f, 360f), 0);
+            patch.GetComponent<Renderer>().sharedMaterial = mats[Random.Range(0, mats.Length)];
+            Destroy(patch.GetComponent<Collider>());
+            patch.isStatic = true;
+        }
+    }
+
+    // Chemin en dalles depuis la porte (côté +Z) vers le portail extérieur
+    private void BuildEntrancePath()
+    {
+        GameObject[] tilePrefabs = LoadPrefabs(
+            "Decorations/PP_Floor_Tile_05",
+            "Decorations/PP_Floor_Tile_06",
+            "Decorations/PP_Floor_Tile_15",
+            "Decorations/PP_Floor_Tile_16",
+            "Decorations/PP_Meadow_Path_05");
+
+        if (tilePrefabs.Length == 0)
+        {
+            // Fallback : un long ruban en pierre claire
+            GameObject path = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            path.name = "EntrancePath";
+            path.transform.parent = outdoorRoot;
+            path.transform.position = new Vector3(0, -0.18f, greenhouseLength / 2f + 12f);
+            path.transform.localScale = new Vector3(2.2f, 0.04f, 24f);
+            path.GetComponent<Renderer>().sharedMaterial =
+                GetMaterial("PathStone", new Color(0.68f, 0.65f, 0.60f), 0.05f, 0.4f);
+            Destroy(path.GetComponent<Collider>());
+            return;
+        }
+
+        float startZ = greenhouseLength / 2f + 1.5f;
+        float endZ = startZ + 22f;
+        float step = 1.4f;
+        int tileIndex = 0;
+        for (float z = startZ; z <= endZ; z += step)
+        {
+            GameObject prefab = tilePrefabs[tileIndex++ % tilePrefabs.Length];
+            float x = Mathf.Sin(z * 0.18f) * 0.15f; // micro-courbure
+            GameObject tile = Instantiate(prefab,
+                new Vector3(x, -0.15f, z),
+                Quaternion.Euler(0, Random.Range(-8f, 8f), 0), outdoorRoot);
+            tile.name = "PathTile";
+            tile.transform.localScale = Vector3.one * Random.Range(0.5f, 0.75f);
+            foreach (var col in tile.GetComponentsInChildren<Collider>())
+                col.enabled = false;
+            FixPrefabMaterials(tile, new Color(0.65f, 0.62f, 0.55f));
+        }
+    }
+
+    // Clôture autour du terrain pour fermer la map visuellement
+    private void BuildPerimeterFence()
+    {
+        GameObject[] fences = LoadPrefabs(
+            "Decorations/PP_Small_Fence_01",
+            "Decorations/PP_Small_Fence_04");
+        if (fences.Length == 0) return;
+
+        float fenceRadius = 92f;
+        int sectionCount = 64;
+        // gap autour de la porte (axe +Z)
+        const float doorGapAngle = 28f * Mathf.Deg2Rad;
+        for (int i = 0; i < sectionCount; i++)
+        {
+            float a = (i / (float)sectionCount) * Mathf.PI * 2f;
+            float angularDist = Mathf.Abs(Mathf.DeltaAngle(a * Mathf.Rad2Deg, 90f)) * Mathf.Deg2Rad;
+            if (angularDist < doorGapAngle) continue;
+
+            Vector3 pos = new Vector3(Mathf.Cos(a) * fenceRadius, 0f, Mathf.Sin(a) * fenceRadius);
+            // orienté tangent au cercle
+            float rotY = -a * Mathf.Rad2Deg + 90f;
+            GameObject prefab = fences[Random.Range(0, fences.Length)];
+            GameObject f = Instantiate(prefab, pos, Quaternion.Euler(0, rotY, 0), outdoorRoot);
+            f.transform.localScale = Vector3.one * Random.Range(0.4f, 0.6f);
+            foreach (var col in f.GetComponentsInChildren<Collider>())
+                col.enabled = false;
+            FixPrefabMaterials(f, new Color(0.45f, 0.30f, 0.18f));
+        }
+    }
+
+    // Place une grande variété de décorations dans plusieurs anneaux autour de la serre
+    private void PopulateOutdoorMap()
+    {
+        GameObject[] trees = LoadPrefabs(
             "Decorations/PP_Tree_02",
             "Decorations/PP_Tree_10",
             "Decorations/PP_Birch_Tree_05",
-            "Decorations/PP_Birch_Tree_06",
-        };
-        System.Collections.Generic.List<GameObject> trees = new System.Collections.Generic.List<GameObject>();
-        foreach (var p in candidatePaths)
-        {
-            GameObject prefab = Resources.Load<GameObject>(p);
-            if (prefab != null) trees.Add(prefab);
-        }
-        if (trees.Count == 0) return; // pas de prefabs trouvés dans Resources
+            "Decorations/PP_Birch_Tree_06");
 
-        const int count = 24;
-        float greenhouseHalfMax = Mathf.Max(greenhouseWidth, greenhouseLength) / 2f;
-        for (int i = 0; i < count; i++)
+        GameObject[] rocks = LoadPrefabs(
+            "Decorations/PP_Rock_Moss_Grown_09",
+            "Decorations/PP_Rock_Moss_Grown_11",
+            "Decorations/PP_Rock_Pile_Forest_Moss_05",
+            "Decorations/PP_Rock_Pile_Forest_Moss_10");
+
+        GameObject[] pebbles = LoadPrefabs(
+            "Decorations/PP_Cemetery_Pebbles_03",
+            "Decorations/PP_Cemetery_Pebbles_09");
+
+        GameObject[] flowers = LoadPrefabs(
+            "Decorations/PP_Daffodil_03",
+            "Decorations/PP_Hyacinth_04",
+            "Decorations/PP_Sunflower_04");
+
+        GameObject[] mushrooms = LoadPrefabs(
+            "Decorations/PP_Mushroom_Fantasy_Orange_09",
+            "Decorations/PP_Mushroom_Fantasy_Orange_10",
+            "Decorations/PP_Mushroom_Fantasy_Purple_05",
+            "Decorations/PP_Mushroom_Fantasy_Purple_08");
+
+        GameObject[] grass = LoadPrefabs(
+            "Decorations/PP_Grass_11",
+            "Decorations/PP_Grass_15");
+
+        GameObject[] meadows = LoadPrefabs(
+            "Decorations/PP_Meadow_07",
+            "Decorations/PP_Meadow_08");
+
+        GameObject[] moss = LoadPrefabs(
+            "Decorations/PP_Forest_Mountain_Moss_01",
+            "Decorations/PP_Forest_Mountain_Moss_02");
+
+        float ghHalf = Mathf.Max(greenhouseWidth, greenhouseLength) / 2f;
+
+        // Couleurs fallback (utilisées si le shader URP ne se convertit pas correctement)
+        Color treeGreen = new Color(0.18f, 0.42f, 0.18f);
+        Color trunkBrown = new Color(0.32f, 0.22f, 0.14f);
+        Color rockGray = new Color(0.50f, 0.48f, 0.45f);
+        Color mossGreen = new Color(0.28f, 0.40f, 0.20f);
+        Color flowerYellow = new Color(0.92f, 0.82f, 0.30f);
+        Color mushroomOrange = new Color(0.80f, 0.45f, 0.20f);
+        Color grassGreen = new Color(0.34f, 0.55f, 0.25f);
+
+        // ── FORÊT DENSE ──
+        // 1) Anneau proche (boisé clair) : arbres + touffes d'herbe
+        ScatterPrefabs(trees, 90, ghHalf + 8f, 30f, 0.35f, 0.55f, treeGreen);
+        // 2) Anneau moyen (forêt dense)
+        ScatterPrefabs(trees, 180, 30f, 60f, 0.4f, 0.65f, treeGreen);
+        // 3) Anneau extérieur (forêt très dense — mur d'arbres)
+        ScatterPrefabs(trees, 220, 60f, 95f, 0.45f, 0.75f, treeGreen);
+        // 4) Bosquets serrés (clusters de 4–6 arbres)
+        ScatterTreeClusters(trees, 30, 35f, 90f, treeGreen);
+
+        // ── MONTAGNES / GROS ROCHERS — TRÈS LOIN ──
+        // Repoussés à 70m+ pour ne plus envahir la vue depuis la serre
+        ScatterPrefabs(rocks, 25, 75f, 95f, 0.4f, 0.8f, rockGray);
+        // Petits rochers / cailloux : plus près
+        ScatterPrefabs(pebbles, 60, ghHalf + 6f, 70f, 0.2f, 0.4f, rockGray);
+
+        // ── SOUS-BOIS ──
+        ScatterPrefabs(moss, 90, ghHalf + 4f, 80f, 0.25f, 0.5f, mossGreen);
+        ScatterPrefabs(flowers, 140, ghHalf + 3f, 40f, 0.35f, 0.6f, flowerYellow);
+        ScatterPrefabs(grass, 280, ghHalf + 2f, 70f, 0.3f, 0.55f, grassGreen);
+        ScatterPrefabs(mushrooms, 70, ghHalf + 10f, 75f, 0.3f, 0.5f, mushroomOrange);
+        ScatterPrefabs(meadows, 50, ghHalf + 6f, 60f, 0.35f, 0.6f, grassGreen);
+    }
+
+    // Crée des bosquets : un point central, puis 4-6 arbres autour à 1-3 m
+    private void ScatterTreeClusters(GameObject[] trees, int clusterCount,
+                                     float minRadius, float maxRadius, Color fallback)
+    {
+        if (trees == null || trees.Length == 0) return;
+        for (int c = 0; c < clusterCount; c++)
         {
-            // Position aléatoire dans un anneau autour de la serre
             float angle = Random.Range(0f, Mathf.PI * 2f);
-            float radius = Random.Range(greenhouseHalfMax + 6f, greenhouseHalfMax + 60f);
-            Vector3 pos = new Vector3(Mathf.Cos(angle) * radius, 0f, Mathf.Sin(angle) * radius);
+            float radius = Random.Range(minRadius, maxRadius);
+            Vector3 center = new Vector3(Mathf.Cos(angle) * radius, 0f, Mathf.Sin(angle) * radius);
+            if (IsInsideGreenhouse(center, 3f)) continue;
+            if (IsOnEntrancePath(center, 4f)) continue;
 
-            GameObject t = Instantiate(trees[Random.Range(0, trees.Count)], pos, Quaternion.Euler(0, Random.Range(0f, 360f), 0), transform);
-            float s = Random.Range(0.8f, 1.3f);
-            t.transform.localScale = Vector3.one * s;
+            int treesInCluster = Random.Range(4, 7);
+            for (int i = 0; i < treesInCluster; i++)
+            {
+                Vector2 offset = Random.insideUnitCircle * 3f;
+                Vector3 pos = center + new Vector3(offset.x, 0f, offset.y);
+                if (IsInsideGreenhouse(pos, 3f)) continue;
+                if (IsOnEntrancePath(pos, 4f)) continue;
+
+                GameObject prefab = trees[Random.Range(0, trees.Length)];
+                GameObject inst = Instantiate(prefab, pos,
+                    Quaternion.Euler(0, Random.Range(0f, 360f), 0), outdoorRoot);
+                inst.transform.localScale = Vector3.one * Random.Range(0.4f, 0.7f);
+                foreach (var col in inst.GetComponentsInChildren<Collider>())
+                    col.enabled = false;
+                FixPrefabMaterials(inst, fallback);
+            }
         }
+    }
+
+    private GameObject[] LoadPrefabs(params string[] paths)
+    {
+        var list = new List<GameObject>(paths.Length);
+        foreach (var p in paths)
+        {
+            var go = Resources.Load<GameObject>(p);
+            if (go != null) list.Add(go);
+        }
+        return list.ToArray();
+    }
+
+    private void ScatterPrefabs(GameObject[] prefabs, int count, float minRadius, float maxRadius,
+                                float minScale, float maxScale, Color fallback)
+    {
+        if (prefabs == null || prefabs.Length == 0) return;
+        int placed = 0;
+        int safety = count * 6;
+        while (placed < count && safety-- > 0)
+        {
+            float angle = Random.Range(0f, Mathf.PI * 2f);
+            float radius = Random.Range(minRadius, maxRadius);
+            Vector3 pos = new Vector3(Mathf.Cos(angle) * radius, 0f, Mathf.Sin(angle) * radius);
+            if (IsInsideGreenhouse(pos, 3f)) continue;
+            if (IsOnEntrancePath(pos, 2.5f)) continue;
+
+            GameObject prefab = prefabs[Random.Range(0, prefabs.Length)];
+            GameObject inst = Instantiate(prefab, pos,
+                Quaternion.Euler(0, Random.Range(0f, 360f), 0), outdoorRoot);
+            inst.transform.localScale = Vector3.one * Random.Range(minScale, maxScale);
+            foreach (var col in inst.GetComponentsInChildren<Collider>())
+                col.enabled = false;
+            FixPrefabMaterials(inst, fallback);
+            placed++;
+        }
+    }
+
+    // Cherche un point au sol qui ne tombe pas dans la serre
+    private Vector3 RandomOutdoorPoint(out bool valid, float minDistFromCenter, float maxDistFromCenter)
+    {
+        for (int attempt = 0; attempt < 20; attempt++)
+        {
+            float angle = Random.Range(0f, Mathf.PI * 2f);
+            float radius = Random.Range(minDistFromCenter, maxDistFromCenter);
+            Vector3 pos = new Vector3(Mathf.Cos(angle) * radius, 0f, Mathf.Sin(angle) * radius);
+            if (!IsInsideGreenhouse(pos, 1.5f))
+            {
+                valid = true;
+                return pos;
+            }
+        }
+        valid = false;
+        return Vector3.zero;
+    }
+
+    private bool IsInsideGreenhouse(Vector3 pos, float margin)
+    {
+        return Mathf.Abs(pos.x) < greenhouseWidth / 2f + margin
+            && Mathf.Abs(pos.z) < greenhouseLength / 2f + margin;
+    }
+
+    private bool IsOnEntrancePath(Vector3 pos, float halfWidth)
+    {
+        float startZ = greenhouseLength / 2f;
+        float endZ = startZ + 24f;
+        return pos.z > startZ && pos.z < endZ && Mathf.Abs(pos.x) < halfWidth;
     }
 
     // ─────────────────────────────────────────────
