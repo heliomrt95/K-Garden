@@ -467,17 +467,73 @@ public class LevelBuilder : MonoBehaviour
     // ─────────────────────────────────────────────
     private void SetupLighting()
     {
-        // Lumière directionnelle (soleil)
+        // Soleil (lumière directionnelle)
         GameObject sun = new GameObject("Sun");
         sun.transform.parent = transform;
         Light l = sun.AddComponent<Light>();
         l.type = LightType.Directional;
-        l.intensity = 1.1f;
-        l.color = new Color(1f, 0.96f, 0.85f);
+        l.intensity = 1.35f;
+        l.color = new Color(1f, 0.95f, 0.82f);
+        l.shadows = LightShadows.Soft;
+        l.shadowStrength = 0.7f;
         sun.transform.rotation = Quaternion.Euler(50f, -30f, 0);
 
-        // Lumière d'ambiance chaude
-        RenderSettings.ambientLight = new Color(0.4f, 0.45f, 0.4f);
+        // Ambient en mode trichrome (ciel/équateur/sol) pour un rendu plus naturel
+        RenderSettings.ambientMode = UnityEngine.Rendering.AmbientMode.Trilight;
+        RenderSettings.ambientSkyColor = new Color(0.55f, 0.65f, 0.75f);
+        RenderSettings.ambientEquatorColor = new Color(0.45f, 0.45f, 0.40f);
+        RenderSettings.ambientGroundColor = new Color(0.20f, 0.18f, 0.14f);
+        RenderSettings.ambientIntensity = 1.1f;
+
+        // Trois suspensions chaudes le long de l'allée centrale
+        float zStep = greenhouseLength / 4f;
+        for (int i = -1; i <= 1; i++)
+        {
+            GameObject pl = new GameObject($"PendantLight_{i}");
+            pl.transform.parent = transform;
+            pl.transform.position = new Vector3(0, greenhouseHeight - 0.6f, i * zStep);
+
+            Light pll = pl.AddComponent<Light>();
+            pll.type = LightType.Point;
+            pll.color = new Color(1f, 0.83f, 0.55f);
+            pll.intensity = 1.4f;
+            pll.range = 9f;
+            pll.shadows = LightShadows.Soft;
+
+            // Petit globe visible (capsule jaune émissive)
+            GameObject bulb = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+            bulb.name = "Bulb";
+            bulb.transform.parent = pl.transform;
+            bulb.transform.localPosition = Vector3.zero;
+            bulb.transform.localScale = Vector3.one * 0.18f;
+            Destroy(bulb.GetComponent<Collider>());
+            Material bulbMat = new Material(Shader.Find("Standard"));
+            bulbMat.color = new Color(1f, 0.9f, 0.6f);
+            bulbMat.EnableKeyword("_EMISSION");
+            bulbMat.SetColor("_EmissionColor", new Color(1.6f, 1.3f, 0.7f));
+            bulb.GetComponent<Renderer>().material = bulbMat;
+
+            // Câble (cylindre fin)
+            GameObject cable = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+            cable.name = "Cable";
+            cable.transform.parent = pl.transform;
+            cable.transform.localPosition = new Vector3(0, 0.4f, 0);
+            cable.transform.localScale = new Vector3(0.012f, 0.4f, 0.012f);
+            Destroy(cable.GetComponent<Collider>());
+            cable.GetComponent<Renderer>().material = GetMaterial("Cable", new Color(0.1f, 0.1f, 0.1f), 0.2f, 0.4f);
+        }
+
+        // Reflection probe au centre pour les reflets sur le verre / l'arrosoir
+        GameObject probe = new GameObject("ReflectionProbe");
+        probe.transform.parent = transform;
+        probe.transform.position = new Vector3(0, greenhouseHeight / 2f, 0);
+        ReflectionProbe rp = probe.AddComponent<ReflectionProbe>();
+        rp.mode = UnityEngine.Rendering.ReflectionProbeMode.Realtime;
+        rp.refreshMode = UnityEngine.Rendering.ReflectionProbeRefreshMode.OnAwake;
+        rp.timeSlicingMode = UnityEngine.Rendering.ReflectionProbeTimeSlicingMode.AllFacesAtOnce;
+        rp.resolution = 128;
+        rp.size = new Vector3(greenhouseWidth, greenhouseHeight, greenhouseLength);
+        rp.RenderProbe();
     }
 
     // ─────────────────────────────────────────────

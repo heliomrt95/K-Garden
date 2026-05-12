@@ -178,4 +178,63 @@ public class InteractionManager : MonoBehaviour
 
     public bool HasSeed(int idx) => seedCounts.ContainsKey(idx) && seedCounts[idx] > 0;
     public bool HasAllThreeBossSeeds() => HasSeed(0) && HasSeed(1) && HasSeed(2);
+
+    public int GetSeedCount(int idx) => seedCounts.TryGetValue(idx, out int n) ? n : 0;
+    public GameObject CurrentTarget => currentTarget;
+
+    public string GetInteractionHint()
+    {
+        if (currentTarget == null) return null;
+
+        ItemPickup pickup = currentTarget.GetComponent<ItemPickup>();
+        if (pickup != null)
+        {
+            switch (pickup.itemType)
+            {
+                case ItemType.WateringCan:     return "[E] Ramasser l'arrosoir";
+                case ItemType.FertilizerSpray: return "[E] Ramasser le spray d'engrais";
+                case ItemType.PestSpray:       return "[E] Ramasser le spray anti-nuisibles";
+                case ItemType.Seed:            return "[E] Ramasser la graine";
+                default:                       return "[E] Ramasser";
+            }
+        }
+
+        if (currentTarget.CompareTag("SoilPile")) return "[E] Prendre une poignée de terre";
+        if (currentTarget.CompareTag("Key"))      return "[E] Ramasser la clé";
+
+        PotInteraction pot = currentTarget.GetComponentInParent<PotInteraction>();
+        if (pot != null) return GetPotHint(pot);
+
+        return null;
+    }
+
+    private string GetPotHint(PotInteraction pot)
+    {
+        switch (pot.State)
+        {
+            case PotInteraction.PotState.Empty:
+                return equippedItem == ItemType.SoilHandful
+                    ? "[E] Ajouter de la terre"
+                    : "Apportez une poignée de terre du tas de terreau";
+            case PotInteraction.PotState.SoilAdded:
+                return equippedItem == ItemType.FertilizerSpray
+                    ? "[E] Pulvériser de l'engrais"
+                    : "Équipez le spray d'engrais (2)";
+            case PotInteraction.PotState.Fertilized:
+                return equippedItem == ItemType.Seed
+                    ? "[E] Planter la graine"
+                    : "Équipez une graine (4)";
+            case PotInteraction.PotState.SeedPlanted:
+                return equippedItem == ItemType.WateringCan
+                    ? "[E] Arroser"
+                    : "Équipez l'arrosoir (1)";
+            case PotInteraction.PotState.Growing:
+                return "La plante pousse — défendez-la (clic gauche)";
+            case PotInteraction.PotState.Harvestable:
+                return "Plante mûre — la graine est lâchée à côté";
+            case PotInteraction.PotState.Burnt:
+                return "Plante détruite — recommencez";
+        }
+        return null;
+    }
 }

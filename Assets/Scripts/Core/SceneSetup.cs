@@ -44,10 +44,21 @@ public class SceneSetup : MonoBehaviour
         {
             CreatePlayer();
         }
+
+        // 5. HUD
+        if (FindObjectOfType<HUDManager>() == null)
+        {
+            GameObject hud = new GameObject("HUDManager");
+            hud.AddComponent<HUDManager>();
+        }
     }
 
     private void CreatePlayer()
     {
+        // Désactive la Main Camera par défaut pour éviter le double AudioListener
+        GameObject defaultCam = GameObject.Find("Main Camera");
+        if (defaultCam != null) defaultCam.SetActive(false);
+
         GameObject player = new GameObject("Player");
         player.tag = "Player";
         player.transform.position = playerSpawnPosition;
