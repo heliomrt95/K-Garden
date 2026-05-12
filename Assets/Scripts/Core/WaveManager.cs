@@ -21,6 +21,10 @@ public class WaveManager : MonoBehaviour
     private List<PestEnemy> alivePests = new List<PestEnemy>();
     private int killCount;
 
+    public int KillCount => killCount;
+    public int TotalEnemies { get; private set; }
+    public bool IsActive => currentWave != null;
+
     private void Awake()
     {
         if (Instance != null && Instance != this) { Destroy(gameObject); return; }
@@ -32,6 +36,7 @@ public class WaveManager : MonoBehaviour
         if (currentWave != null) StopCoroutine(currentWave);
         currentPot = pot;
         killCount = 0;
+        TotalEnemies = totalEnemies;
         currentWave = StartCoroutine(SpawnWaveRoutine(pot, totalEnemies));
     }
 

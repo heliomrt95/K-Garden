@@ -20,6 +20,14 @@ public class LevelBuilder : MonoBehaviour
     public int potsPerSide = 5;
     public float potSpacing = 4f;
 
+    [Header("Prefabs 3D (optionnel — remplace les primitives si assigné)")]
+    public GameObject wateringCanPrefab;
+    public GameObject fertilizerSprayPrefab;
+    public GameObject pestSprayPrefab;
+    public GameObject potPrefab;
+    public GameObject soilPilePrefab;
+    public GameObject seedPrefab;
+
     // Matériaux mis en cache pour éviter les doublons
     private Dictionary<string, Material> materialCache = new Dictionary<string, Material>();
 
@@ -65,6 +73,7 @@ public class LevelBuilder : MonoBehaviour
 
     private void BuildLevel()
     {
+        BuildOutdoorTerrain();
         BuildFloor();
         BuildWalls();
         BuildRoof();
@@ -74,6 +83,61 @@ public class LevelBuilder : MonoBehaviour
         BuildSoilPile();
         BuildWateringCan();
         SetupLighting();
+    }
+
+    // ─────────────────────────────────────────────
+    // GROSSE MAP : grand sol herbeux qui entoure la serre
+    // ─────────────────────────────────────────────
+    private void BuildOutdoorTerrain()
+    {
+        const float mapSize = 200f; // 200 x 200 m
+
+        GameObject ground = GameObject.CreatePrimitive(PrimitiveType.Plane);
+        ground.name = "OutdoorGround";
+        ground.transform.parent = transform;
+        ground.transform.position = new Vector3(0, -0.2f, 0); // juste en-dessous du sol de la serre
+        ground.transform.localScale = new Vector3(mapSize / 10f, 1f, mapSize / 10f); // Plane Unity = 10x10
+        ground.isStatic = true;
+
+        // Tente de charger le matériau PP_Ground du Nature Pack (après import du URP→Built-in)
+        Material grass = Resources.Load<Material>("Materials/PP_Ground");
+        if (grass == null) grass = Resources.Load<Material>("PP_Ground");
+        if (grass == null) grass = GetMaterial("Grass", new Color(0.42f, 0.62f, 0.28f), 0f, 0.05f);
+        ground.GetComponent<Renderer>().sharedMaterial = grass;
+
+        // Quelques arbres décoratifs autour de la serre, si on a chargé un prefab valide
+        TryScatterDecorations();
+    }
+
+    private void TryScatterDecorations()
+    {
+        string[] candidatePaths = {
+            "Decorations/PP_Tree_02",
+            "Decorations/PP_Tree_10",
+            "Decorations/PP_Birch_Tree_05",
+            "Decorations/PP_Birch_Tree_06",
+        };
+        System.Collections.Generic.List<GameObject> trees = new System.Collections.Generic.List<GameObject>();
+        foreach (var p in candidatePaths)
+        {
+            GameObject prefab = Resources.Load<GameObject>(p);
+            if (prefab != null) trees.Add(prefab);
+        }
+        if (trees.Count == 0) return; // pas de prefabs trouvés dans Resources
+
+        const int count = 24;
+        float greenhouseHalfMax = Mathf.Max(greenhouseWidth, greenhouseLength) / 2f;
+        for (int i = 0; i < count; i++)
+        {
+            // Position aléatoire dans un anneau autour de la serre
+            float angle = Random.Range(0f, Mathf.PI * 2f);
+            float radius = Random.Range(greenhouseHalfMax + 6f, greenhouseHalfMax + 60f);
+            Vector3 pos = new Vector3(Mathf.Cos(angle) * radius, 0f, Mathf.Sin(angle) * radius);
+
+            GameObject t = Instantiate(trees[Random.Range(0, trees.Count)], pos, Quaternion.Euler(0, Random.Range(0f, 360f), 0), transform);
+            float s = Random.Range(0.8f, 1.3f);
+            t.transform.localScale = Vector3.one * s;
+        }
     }
 
     // ─────────────────────────────────────────────
@@ -87,7 +151,7 @@ public class LevelBuilder : MonoBehaviour
         dirt.transform.parent = transform;
         dirt.transform.position = new Vector3(0, -0.1f, 0);
         dirt.transform.localScale = new Vector3(greenhouseWidth, 0.2f, greenhouseLength);
-        dirt.GetComponent<Renderer>().material = GetMaterial("Dirt", new Color(0.36f, 0.25f, 0.18f));
+        dirt.GetComponent<Renderer>().material = GetMaterial("Dirt", new Color(0.36f, 0.25f, 0.18f), 0f, 0.05f);
         dirt.isStatic = true;
 
         // Allée centrale en carrelage de pierre
@@ -96,7 +160,7 @@ public class LevelBuilder : MonoBehaviour
         path.transform.parent = transform;
         path.transform.position = new Vector3(0, 0.01f, 0);
         path.transform.localScale = new Vector3(3f, 0.05f, greenhouseLength - 0.5f);
-        path.GetComponent<Renderer>().material = GetMaterial("Stone", new Color(0.65f, 0.62f, 0.58f));
+        path.GetComponent<Renderer>().material = GetMaterial("Stone", new Color(0.65f, 0.62f, 0.58f), 0.05f, 0.42f);
         path.isStatic = true;
 
         // NavMesh : on ajoute un NavMeshSurface au runtime via composant statique
@@ -108,7 +172,7 @@ public class LevelBuilder : MonoBehaviour
     // ─────────────────────────────────────────────
     private void BuildWalls()
     {
-        Material glass = GetTransparentMaterial("Glass", new Color(0.7f, 0.85f, 0.9f, 0.25f));
+        Material glass = GetTransparentMaterial("Glass", new Color(0.78f, 0.92f, 0.95f, 0.22f), 0.05f, 0.95f);
 
         // Mur Nord (porte au milieu — on la simule en laissant un trou simple : 2 sous-murs)
         BuildWallWithDoor(new Vector3(0, greenhouseHeight / 2f, greenhouseLength / 2f),
@@ -170,12 +234,12 @@ public class LevelBuilder : MonoBehaviour
         door.transform.parent = transform;
         door.transform.position = new Vector3(center.x, doorHeight / 2f, center.z);
         door.transform.localScale = new Vector3(doorWidth, doorHeight, wallThickness * 1.5f);
-        door.GetComponent<Renderer>().material = GetMaterial("DoorWood", new Color(0.18f, 0.35f, 0.18f));
+        door.GetComponent<Renderer>().material = GetMaterial("DoorWood", new Color(0.18f, 0.35f, 0.18f), 0f, 0.25f);
     }
 
     private void BuildWoodenFrame()
     {
-        Material wood = GetMaterial("Wood", new Color(0.42f, 0.27f, 0.15f));
+        Material wood = GetMaterial("Wood", new Color(0.42f, 0.27f, 0.15f), 0f, 0.22f);
         float t = 0.15f;
 
         // 4 piliers verticaux aux coins
@@ -201,7 +265,7 @@ public class LevelBuilder : MonoBehaviour
     // ─────────────────────────────────────────────
     private void BuildRoof()
     {
-        Material glass = GetTransparentMaterial("RoofGlass", new Color(0.7f, 0.85f, 0.9f, 0.25f));
+        Material glass = GetTransparentMaterial("RoofGlass", new Color(0.78f, 0.92f, 0.95f, 0.22f), 0.05f, 0.95f);
         float slope = 25f; // angle d'inclinaison en degrés
         float panelWidth = greenhouseWidth / 2f / Mathf.Cos(slope * Mathf.Deg2Rad);
 
@@ -229,11 +293,53 @@ public class LevelBuilder : MonoBehaviour
     // ─────────────────────────────────────────────
     private void BuildCentralTable()
     {
+        // Tentative : charger un modèle FBX depuis Resources/Furniture/Table
+        GameObject tablePrefab = Resources.Load<GameObject>("Furniture/Table");
+        if (tablePrefab != null)
+        {
+            // 3ds Max exporte en Z-up : -90° sur X pour redresser
+            centralTable = Instantiate(tablePrefab, Vector3.zero, Quaternion.Euler(-90f, 0f, 0f), transform);
+            centralTable.name = "CentralTable";
+
+            // Applique les textures à la main (le FBX référence souvent les textures par chemin absolu)
+            Texture2D diffuse = Resources.Load<Texture2D>("Furniture/owt_diffuse");
+            Texture2D bump = Resources.Load<Texture2D>("Furniture/owt_bump");
+            Material woodMat = new Material(Shader.Find("Standard"));
+            if (diffuse != null) woodMat.mainTexture = diffuse;
+            if (bump != null)
+            {
+                woodMat.SetTexture("_BumpMap", bump);
+                woodMat.EnableKeyword("_NORMALMAP");
+            }
+            woodMat.SetFloat("_Metallic", 0f);
+            woodMat.SetFloat("_Glossiness", 0.25f);
+
+            Renderer[] renderers = centralTable.GetComponentsInChildren<Renderer>();
+            foreach (var rend in renderers) rend.sharedMaterial = woodMat;
+
+            // Scale (world Y après rotation) pour faire environ 1 m de haut, puis repose la base à y=0
+            if (renderers.Length > 0)
+            {
+                Bounds combined = renderers[0].bounds;
+                for (int i = 1; i < renderers.Length; i++) combined.Encapsulate(renderers[i].bounds);
+                if (combined.size.y > 0.001f)
+                {
+                    const float targetHeight = 1.0f;
+                    centralTable.transform.localScale = Vector3.one * (targetHeight / combined.size.y);
+                }
+                Bounds afterScale = renderers[0].bounds;
+                for (int i = 1; i < renderers.Length; i++) afterScale.Encapsulate(renderers[i].bounds);
+                centralTable.transform.position += new Vector3(0, -afterScale.min.y, 0);
+            }
+            return;
+        }
+
+        // Fallback procédural : plateau + 4 pieds
         centralTable = new GameObject("CentralTable");
         centralTable.transform.parent = transform;
         centralTable.transform.position = Vector3.zero;
 
-        Material wood = GetMaterial("Wood", new Color(0.42f, 0.27f, 0.15f));
+        Material wood = GetMaterial("Wood", new Color(0.42f, 0.27f, 0.15f), 0f, 0.22f);
 
         float topW = 3f, topL = 1.6f, topH = 0.1f;
         float legH = 0.9f, legT = 0.15f;
@@ -269,8 +375,8 @@ public class LevelBuilder : MonoBehaviour
     // ─────────────────────────────────────────────
     private void BuildPots()
     {
-        Material clay = GetMaterial("Clay", new Color(0.55f, 0.27f, 0.15f));
-        Material soil = GetMaterial("Soil", new Color(0.25f, 0.15f, 0.08f));
+        Material clay = GetMaterial("Clay", new Color(0.55f, 0.27f, 0.15f), 0f, 0.30f);
+        Material soil = GetMaterial("Soil", new Color(0.25f, 0.15f, 0.08f), 0f, 0.06f);
 
         float startZ = -(potsPerSide - 1) * potSpacing / 2f;
         float xLeft = -greenhouseWidth / 2f + 1.5f;
@@ -286,7 +392,25 @@ public class LevelBuilder : MonoBehaviour
 
     private GameObject CreatePot(Vector3 pos, string name, Material clay, Material soil)
     {
-        // Le pot lui-même
+        if (potPrefab != null)
+        {
+            GameObject prefabPot = Instantiate(potPrefab, pos, Quaternion.identity, transform);
+            prefabPot.name = name;
+            prefabPot.tag = "Pot";
+            if (prefabPot.GetComponent<PotInteraction>() == null)
+                prefabPot.AddComponent<PotInteraction>();
+            if (prefabPot.GetComponent<Collider>() == null)
+            {
+                CapsuleCollider cc = prefabPot.AddComponent<CapsuleCollider>();
+                cc.radius = 0.5f; cc.height = 1f;
+            }
+            SphereCollider prefabTrigger = prefabPot.AddComponent<SphereCollider>();
+            prefabTrigger.isTrigger = true;
+            prefabTrigger.radius = 0.8f;
+            return prefabPot;
+        }
+
+        // Le pot lui-même (primitives)
         GameObject pot = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
         pot.name = name;
         pot.tag = "Pot";
@@ -323,28 +447,59 @@ public class LevelBuilder : MonoBehaviour
     {
         float tableY = 1.0f; // hauteur du plateau
 
-        // Spray d'engrais (cylindre bleu + petit cube blanc pour le bouton)
-        fertilizerSpray = BuildSpray("FertilizerSpray", new Vector3(-0.8f, tableY + 0.2f, 0),
-            new Color(0.2f, 0.5f, 0.9f), ItemType.FertilizerSpray);
+        Vector3 fertPos = new Vector3(-0.8f, tableY + 0.2f, 0);
+        Vector3 pestPos = new Vector3(0.8f, tableY + 0.2f, 0);
 
-        // Spray anti-nuisibles (cylindre rouge)
-        pestSpray = BuildSpray("PestSpray", new Vector3(0.8f, tableY + 0.2f, 0),
-            new Color(0.85f, 0.15f, 0.15f), ItemType.PestSpray);
+        // Spray d'engrais
+        if (fertilizerSprayPrefab != null)
+        {
+            fertilizerSpray = Instantiate(fertilizerSprayPrefab, fertPos, Quaternion.identity, transform);
+            fertilizerSpray.name = "FertilizerSpray";
+            fertilizerSpray.tag = "Pickup";
+            EnsurePickup(fertilizerSpray, ItemType.FertilizerSpray);
+        }
+        else
+        {
+            fertilizerSpray = BuildSpray("FertilizerSpray", fertPos, new Color(0.2f, 0.5f, 0.9f), ItemType.FertilizerSpray);
+        }
 
-        // Première graine (petite sphère verte)
-        startingSeed = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-        startingSeed.name = "Seed_Drosera";
-        startingSeed.tag = "Pickup";
-        startingSeed.transform.parent = transform;
-        startingSeed.transform.position = new Vector3(0, tableY + 0.15f, 0.4f);
-        startingSeed.transform.localScale = Vector3.one * 0.15f;
-        startingSeed.GetComponent<Renderer>().material = GetMaterial("Seed1", new Color(0.6f, 0.8f, 0.2f));
+        // Spray anti-nuisibles
+        if (pestSprayPrefab != null)
+        {
+            pestSpray = Instantiate(pestSprayPrefab, pestPos, Quaternion.identity, transform);
+            pestSpray.name = "PestSpray";
+            pestSpray.tag = "Pickup";
+            EnsurePickup(pestSpray, ItemType.PestSpray);
+        }
+        else
+        {
+            pestSpray = BuildSpray("PestSpray", pestPos, new Color(0.85f, 0.15f, 0.15f), ItemType.PestSpray);
+        }
 
-        Rigidbody rb = startingSeed.AddComponent<Rigidbody>();
-        rb.isKinematic = true;
-        ItemPickup pickup = startingSeed.AddComponent<ItemPickup>();
-        pickup.itemType = ItemType.Seed;
-        pickup.seedIndex = 0; // Drosera = plante 1
+        // Première graine
+        Vector3 seedPos = new Vector3(0, tableY + 0.15f, 0.4f);
+        if (seedPrefab != null)
+        {
+            startingSeed = Instantiate(seedPrefab, seedPos, Quaternion.identity, transform);
+            startingSeed.name = "Seed_Drosera";
+            startingSeed.tag = "Pickup";
+            EnsurePickup(startingSeed, ItemType.Seed, 0);
+        }
+        else
+        {
+            startingSeed = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+            startingSeed.name = "Seed_Drosera";
+            startingSeed.tag = "Pickup";
+            startingSeed.transform.parent = transform;
+            startingSeed.transform.position = seedPos;
+            startingSeed.transform.localScale = Vector3.one * 0.15f;
+            startingSeed.GetComponent<Renderer>().material = GetMaterial("Seed1", new Color(0.6f, 0.8f, 0.2f), 0f, 0.35f);
+            Rigidbody rb2 = startingSeed.AddComponent<Rigidbody>();
+            rb2.isKinematic = true;
+            ItemPickup pu = startingSeed.AddComponent<ItemPickup>();
+            pu.itemType = ItemType.Seed;
+            pu.seedIndex = 0;
+        }
     }
 
     private GameObject BuildSpray(string name, Vector3 pos, Color tint, ItemType type)
@@ -360,7 +515,7 @@ public class LevelBuilder : MonoBehaviour
         body.transform.parent = root.transform;
         body.transform.localPosition = Vector3.zero;
         body.transform.localScale = new Vector3(0.15f, 0.25f, 0.15f);
-        body.GetComponent<Renderer>().material = GetMaterial(name + "_Body", tint);
+        body.GetComponent<Renderer>().material = GetMaterial(name + "_Body", tint, 0.05f, 0.55f);
 
         // Embout / gâchette (petit cube)
         GameObject trigger = GameObject.CreatePrimitive(PrimitiveType.Cube);
@@ -368,7 +523,7 @@ public class LevelBuilder : MonoBehaviour
         trigger.transform.parent = root.transform;
         trigger.transform.localPosition = new Vector3(0.1f, 0.2f, 0);
         trigger.transform.localScale = new Vector3(0.08f, 0.08f, 0.08f);
-        trigger.GetComponent<Renderer>().material = GetMaterial("SprayTrigger", new Color(0.9f, 0.9f, 0.9f));
+        trigger.GetComponent<Renderer>().material = GetMaterial("SprayTrigger", new Color(0.9f, 0.9f, 0.9f), 0.1f, 0.45f);
 
         // Buse (petite capsule horizontale)
         GameObject nozzle = GameObject.CreatePrimitive(PrimitiveType.Capsule);
@@ -398,15 +553,29 @@ public class LevelBuilder : MonoBehaviour
     // ─────────────────────────────────────────────
     private void BuildSoilPile()
     {
+        Vector3 pos = new Vector3(-greenhouseWidth / 2f + 1f, 0.3f, greenhouseLength / 2f - 2f);
+
+        if (soilPilePrefab != null)
+        {
+            soilPile = Instantiate(soilPilePrefab, pos, Quaternion.identity, transform);
+            soilPile.name = "SoilPile";
+            soilPile.tag = "SoilPile";
+            if (soilPile.GetComponent<Collider>() == null)
+            {
+                SphereCollider sc = soilPile.AddComponent<SphereCollider>();
+                sc.isTrigger = true; sc.radius = 0.8f;
+            }
+            return;
+        }
+
         soilPile = GameObject.CreatePrimitive(PrimitiveType.Sphere);
         soilPile.name = "SoilPile";
         soilPile.tag = "SoilPile";
         soilPile.transform.parent = transform;
-        soilPile.transform.position = new Vector3(-greenhouseWidth / 2f + 1f, 0.3f, greenhouseLength / 2f - 2f);
+        soilPile.transform.position = pos;
         soilPile.transform.localScale = new Vector3(1.2f, 0.6f, 1.2f);
-        soilPile.GetComponent<Renderer>().material = GetMaterial("Soil", new Color(0.25f, 0.15f, 0.08f));
+        soilPile.GetComponent<Renderer>().material = GetMaterial("Soil", new Color(0.25f, 0.15f, 0.08f), 0f, 0.06f);
 
-        // Trigger d'interaction
         SphereCollider trig = soilPile.AddComponent<SphereCollider>();
         trig.isTrigger = true;
         trig.radius = 0.8f;
@@ -417,12 +586,23 @@ public class LevelBuilder : MonoBehaviour
     // ─────────────────────────────────────────────
     private void BuildWateringCan()
     {
+        Vector3 pos = new Vector3(greenhouseWidth / 2f - 1f, 0.4f, greenhouseLength / 2f - 2f);
+
+        if (wateringCanPrefab != null)
+        {
+            wateringCan = Instantiate(wateringCanPrefab, pos, Quaternion.identity, transform);
+            wateringCan.name = "WateringCan";
+            wateringCan.tag = "Pickup";
+            EnsurePickup(wateringCan, ItemType.WateringCan);
+            return;
+        }
+
         wateringCan = new GameObject("WateringCan");
         wateringCan.transform.parent = transform;
-        wateringCan.transform.position = new Vector3(greenhouseWidth / 2f - 1f, 0.4f, greenhouseLength / 2f - 2f);
+        wateringCan.transform.position = pos;
         wateringCan.tag = "Pickup";
 
-        Material metal = GetMaterial("Metal", new Color(0.6f, 0.7f, 0.75f));
+        Material metal = GetMaterial("Metal", new Color(0.72f, 0.78f, 0.82f), 0.9f, 0.78f);
 
         // Corps
         GameObject body = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
@@ -537,18 +717,46 @@ public class LevelBuilder : MonoBehaviour
     }
 
     // ─────────────────────────────────────────────
-    // HELPERS MATÉRIAUX
+    // HELPER : s'assure qu'un prefab instancié a bien le bon ItemPickup + Rigidbody
     // ─────────────────────────────────────────────
-    private Material GetMaterial(string key, Color c)
+    private void EnsurePickup(GameObject go, ItemType type, int seedIdx = -1)
+    {
+        if (go.GetComponent<Collider>() == null)
+        {
+            BoxCollider bc = go.AddComponent<BoxCollider>();
+            bc.isTrigger = true;
+            bc.size = Vector3.one * 0.6f;
+        }
+        if (go.GetComponent<Rigidbody>() == null)
+        {
+            Rigidbody rb = go.AddComponent<Rigidbody>();
+            rb.isKinematic = true;
+        }
+        ItemPickup existing = go.GetComponent<ItemPickup>();
+        if (existing == null) existing = go.AddComponent<ItemPickup>();
+        existing.itemType = type;
+        if (seedIdx >= 0) existing.seedIndex = seedIdx;
+    }
+
+    // ─────────────────────────────────────────────
+    // HELPERS MATÉRIAUX (PBR — shader Standard)
+    // ─────────────────────────────────────────────
+    private Material GetMaterial(string key, Color c) => GetMaterial(key, c, 0f, 0.2f);
+
+    private Material GetMaterial(string key, Color c, float metallic, float smoothness)
     {
         if (materialCache.TryGetValue(key, out Material m)) return m;
         m = new Material(Shader.Find("Standard"));
         m.color = c;
+        m.SetFloat("_Metallic", Mathf.Clamp01(metallic));
+        m.SetFloat("_Glossiness", Mathf.Clamp01(smoothness));
         materialCache[key] = m;
         return m;
     }
 
-    private Material GetTransparentMaterial(string key, Color c)
+    private Material GetTransparentMaterial(string key, Color c) => GetTransparentMaterial(key, c, 0f, 0.85f);
+
+    private Material GetTransparentMaterial(string key, Color c, float metallic, float smoothness)
     {
         if (materialCache.TryGetValue(key, out Material m)) return m;
         m = new Material(Shader.Find("Standard"));
@@ -562,6 +770,8 @@ public class LevelBuilder : MonoBehaviour
         m.DisableKeyword("_ALPHAPREMULTIPLY_ON");
         m.renderQueue = 3000;
         m.color = c;
+        m.SetFloat("_Metallic", Mathf.Clamp01(metallic));
+        m.SetFloat("_Glossiness", Mathf.Clamp01(smoothness));
         materialCache[key] = m;
         return m;
     }

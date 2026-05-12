@@ -176,6 +176,7 @@ public class InteractionManager : MonoBehaviour
         OnInventoryChanged?.Invoke(equippedItem, -1);
     }
 
+    public bool HasItem(ItemType type) => ownedItems.Contains(type);
     public bool HasSeed(int idx) => seedCounts.ContainsKey(idx) && seedCounts[idx] > 0;
     public bool HasAllThreeBossSeeds() => HasSeed(0) && HasSeed(1) && HasSeed(2);
 
