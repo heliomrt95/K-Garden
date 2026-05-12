@@ -74,15 +74,68 @@ public class LevelBuilder : MonoBehaviour
     private void BuildLevel()
     {
         BuildOutdoorTerrain();
-        BuildFloor();
-        BuildWalls();
-        BuildRoof();
+
+        // Si un modèle de serre custom (FBX exporté depuis SketchUp) est présent
+        // dans Resources/Greenhouse/Greenhouse.fbx, on l'utilise à la place des
+        // murs/toit/cadre procéduraux. Le sol reste procédural (gameplay).
+        GameObject greenhouseFbx = Resources.Load<GameObject>("Greenhouse/Greenhouse");
+        if (greenhouseFbx != null)
+        {
+            BuildFloor();
+            InstantiateCustomGreenhouse(greenhouseFbx);
+        }
+        else
+        {
+            BuildFloor();
+            BuildWalls();
+            BuildRoof();
+        }
+
         BuildCentralTable();
         BuildPots();
         BuildStartingItems();
         BuildSoilPile();
         BuildWateringCan();
         SetupLighting();
+    }
+
+    // Instancie le modèle SKP→FBX et le redimensionne à la taille de la serre procédurale
+    private void InstantiateCustomGreenhouse(GameObject prefab)
+    {
+        GameObject gh = Instantiate(prefab, Vector3.zero, Quaternion.identity, transform);
+        gh.name = "Greenhouse_FBX";
+
+        // SketchUp exporte parfois en Z-up : si on détecte un mesh très haut sur Z, on redresse
+        Renderer[] renderers = gh.GetComponentsInChildren<Renderer>();
+        if (renderers.Length == 0) return;
+
+        Bounds b = renderers[0].bounds;
+        for (int i = 1; i < renderers.Length; i++) b.Encapsulate(renderers[i].bounds);
+
+        // Si le modèle est plus large en Z qu'en Y et que Y est très petit, on suppose Z-up
+        if (b.size.y < b.size.x * 0.3f && b.size.z > b.size.y * 2f)
+        {
+            gh.transform.rotation = Quaternion.Euler(-90f, 0f, 0f);
+            b = renderers[0].bounds;
+            for (int i = 1; i < renderers.Length; i++) b.Encapsulate(renderers[i].bounds);
+        }
+
+        // Scale pour matcher la taille de la serre (sur la plus grande dimension XZ)
+        float targetSize = Mathf.Max(greenhouseWidth, greenhouseLength);
+        float modelSize = Mathf.Max(b.size.x, b.size.z);
+        if (modelSize > 0.001f)
+        {
+            float s = targetSize / modelSize;
+            gh.transform.localScale = Vector3.one * s;
+        }
+
+        // Repose la base à y=0
+        Bounds finalBounds = renderers[0].bounds;
+        for (int i = 1; i < renderers.Length; i++) finalBounds.Encapsulate(renderers[i].bounds);
+        gh.transform.position += new Vector3(0, -finalBounds.min.y, 0);
+
+        // Patch les matériaux URP éventuels
+        FixPrefabMaterials(gh, new Color(0.85f, 0.85f, 0.85f));
     }
 
     // ─────────────────────────────────────────────
@@ -119,7 +172,6 @@ public class LevelBuilder : MonoBehaviour
                     Color c = fallback;
                     if (src.HasProperty("_BaseColor")) c = src.GetColor("_BaseColor");
                     else if (src.HasProperty("_Color")) c = src.GetColor("_Color");
-                    // Si la teinte est presque noire ou rose magenta, on retombe sur le fallback
                     if (c.maxColorComponent < 0.05f || (c.r > 0.9f && c.g < 0.1f && c.b > 0.9f))
                         c = fallback;
                     nm.color = c;
@@ -128,6 +180,36 @@ public class LevelBuilder : MonoBehaviour
                     if (src.HasProperty("_BaseMap")) tex = src.GetTexture("_BaseMap");
                     else if (src.HasProperty("_MainTex")) tex = src.GetTexture("_MainTex");
                     if (tex != null) nm.mainTexture = tex;
+
+                    // Détection des matériaux à découpe alpha (feuillage d'arbres, herbe, fleurs)
+                    bool isCutout = false;
+                    if (src.HasProperty("_AlphaClip") && src.GetFloat("_AlphaClip") > 0.5f) isCutout = true;
+                    if (src.HasProperty("_Cutoff") && src.GetFloat("_Cutoff") > 0.01f) isCutout = true;
+                    if (src.IsKeywordEnabled("_ALPHATEST_ON")) isCutout = true;
+                    // Heuristique : si la texture a un alpha channel et le nom du matériau évoque
+                    // du feuillage, on force le cutout pour ne pas garder des plans pleins
+                    string n = src.name?.ToLower() ?? "";
+                    if (n.Contains("leaf") || n.Contains("leaves") || n.Contains("foliage") ||
+                        n.Contains("grass") || n.Contains("flower") || n.Contains("petal") ||
+                        n.Contains("daffodil") || n.Contains("hyacinth") || n.Contains("sunflower") ||
+                        n.Contains("birch") || n.Contains("tree")) isCutout = true;
+
+                    if (isCutout)
+                    {
+                        nm.SetFloat("_Mode", 1); // Cutout
+                        nm.SetOverrideTag("RenderType", "TransparentCutout");
+                        nm.SetInt("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.One);
+                        nm.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.Zero);
+                        nm.SetInt("_ZWrite", 1);
+                        nm.EnableKeyword("_ALPHATEST_ON");
+                        nm.DisableKeyword("_ALPHABLEND_ON");
+                        nm.DisableKeyword("_ALPHAPREMULTIPLY_ON");
+                        nm.renderQueue = 2450;
+                        float cutoff = src.HasProperty("_Cutoff") ? src.GetFloat("_Cutoff") : 0.5f;
+                        nm.SetFloat("_Cutoff", Mathf.Max(0.3f, cutoff));
+                        // Empêche le culling pour voir les plans des deux côtés (feuilles)
+                        if (nm.HasProperty("_Cull")) nm.SetFloat("_Cull", 0f);
+                    }
 
                     nm.SetFloat("_Glossiness", 0.08f);
                     nm.SetFloat("_Metallic", 0f);
@@ -161,7 +243,8 @@ public class LevelBuilder : MonoBehaviour
             grass = GetMaterial("Grass", new Color(0.34f, 0.55f, 0.25f), 0f, 0.05f);
         ground.GetComponent<Renderer>().sharedMaterial = grass;
 
-        BuildGroundPatches();
+        // GroundPatches retirés : à grande échelle ils ressemblent à des blocs flottants.
+        // On garde un sol uniforme et on laisse la végétation peupler la variété visuelle.
         BuildEntrancePath();
         BuildPerimeterFence();
         PopulateOutdoorMap();
@@ -199,12 +282,12 @@ public class LevelBuilder : MonoBehaviour
     // Chemin en dalles depuis la porte (côté +Z) vers le portail extérieur
     private void BuildEntrancePath()
     {
+        // PP_Meadow_Path_05 retiré : c'est un gros bloc 3D, il faisait des marches géantes
         GameObject[] tilePrefabs = LoadPrefabs(
             "Decorations/PP_Floor_Tile_05",
             "Decorations/PP_Floor_Tile_06",
             "Decorations/PP_Floor_Tile_15",
-            "Decorations/PP_Floor_Tile_16",
-            "Decorations/PP_Meadow_Path_05");
+            "Decorations/PP_Floor_Tile_16");
 
         if (tilePrefabs.Length == 0)
         {
@@ -232,7 +315,7 @@ public class LevelBuilder : MonoBehaviour
                 new Vector3(x, -0.15f, z),
                 Quaternion.Euler(0, Random.Range(-8f, 8f), 0), outdoorRoot);
             tile.name = "PathTile";
-            tile.transform.localScale = Vector3.one * Random.Range(0.5f, 0.75f);
+            tile.transform.localScale = Vector3.one * Random.Range(0.25f, 0.4f);
             foreach (var col in tile.GetComponentsInChildren<Collider>())
                 col.enabled = false;
             FixPrefabMaterials(tile, new Color(0.65f, 0.62f, 0.55f));
@@ -332,11 +415,10 @@ public class LevelBuilder : MonoBehaviour
         // 4) Bosquets serrés (clusters de 4–6 arbres)
         ScatterTreeClusters(trees, 30, 35f, 90f, treeGreen);
 
-        // ── MONTAGNES / GROS ROCHERS — TRÈS LOIN ──
-        // Repoussés à 70m+ pour ne plus envahir la vue depuis la serre
-        ScatterPrefabs(rocks, 25, 75f, 95f, 0.4f, 0.8f, rockGray);
-        // Petits rochers / cailloux : plus près
-        ScatterPrefabs(pebbles, 60, ghHalf + 6f, 70f, 0.2f, 0.4f, rockGray);
+        // ── GROS ROCHERS — TRÈS LOIN ET PETITS, en bordure d'horizon ──
+        ScatterPrefabs(rocks, 20, 95f, MapHalf - 5f, 0.25f, 0.5f, rockGray);
+        // Petits rochers / cailloux : éparpillés au sol
+        ScatterPrefabs(pebbles, 60, ghHalf + 8f, 70f, 0.15f, 0.3f, rockGray);
 
         // ── SOUS-BOIS ──
         ScatterPrefabs(moss, 90, ghHalf + 4f, 80f, 0.25f, 0.5f, mossGreen);
