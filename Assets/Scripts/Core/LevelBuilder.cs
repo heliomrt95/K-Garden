@@ -100,6 +100,7 @@ public class LevelBuilder : MonoBehaviour
         BuildStartingItems();
         BuildSoilPile();
         BuildWateringCan();
+        BuildDecorPlants();
         SetupLighting();
 
         // Patch Green Lawn 3D abandonné — les billboards Grass1-4 donnent
@@ -1559,7 +1560,7 @@ public class LevelBuilder : MonoBehaviour
     private GameObject CreatePot(Vector3 pos, string name, Material clay, Material soil)
     {
         // Fallback FBX généré : pivot à la base
-        GameObject fbxPot = potPrefab != null ? potPrefab : Resources.Load<GameObject>("Tools/ClayPot");
+        GameObject fbxPot = potPrefab != null ? potPrefab : Resources.Load<GameObject>("Tools/Pots");
 
         if (fbxPot != null)
         {
@@ -1937,6 +1938,99 @@ public class LevelBuilder : MonoBehaviour
 
         ItemPickup pickup = wateringCan.AddComponent<ItemPickup>();
         pickup.itemType = ItemType.WateringCan;
+    }
+
+    // ─────────────────────────────────────────────
+    // PLANTES DÉCO : 4 au sol (coins), 3 suspendues au plafond, 3 en hauteur
+    // ─────────────────────────────────────────────
+    private void BuildDecorPlants()
+    {
+        GameObject root = new GameObject("DecorPlants");
+        root.transform.parent = transform;
+
+        // Sol : 4 coins de la serre (en dehors de la zone des PlanterBox/pots)
+        SpawnDecorPlant("Decorations/Plants/Plant_01/plant",
+            new Vector3(-3.4f, GroundY, -5.4f), 0.85f, root.transform, anchorTop: false);
+        SpawnDecorPlant("Decorations/Plants/Plant_02/plant",
+            new Vector3( 3.4f, GroundY, -5.4f), 0.95f, root.transform, anchorTop: false);
+        SpawnDecorPlant("Decorations/Plants/Plant_03/plant",
+            new Vector3(-3.4f, GroundY,  5.4f), 0.75f, root.transform, anchorTop: false);
+        SpawnDecorPlant("Decorations/Plants/Plant_04/plant",
+            new Vector3( 3.4f, GroundY,  5.4f), 0.70f, root.transform, anchorTop: false);
+
+        // Suspendues : sur l'axe central (x=0), espacées le long de la serre, en dessous du sommet de l'arche
+        float ceilingY = GroundY + greenhouseHeight - 0.4f; // ~ 2.9m monde
+        SpawnDecorPlant("Decorations/Plants/Plant_05/marijuanna",
+            new Vector3(0f, ceilingY - 0.9f, -3.5f), 0.55f, root.transform, anchorTop: true, ceilingY);
+        SpawnDecorPlant("Decorations/Plants/Plant_07/eb_house_plant_02",
+            new Vector3(0f, ceilingY - 0.7f,  0f), 0.45f, root.transform, anchorTop: true, ceilingY);
+        SpawnDecorPlant("Decorations/Plants/Plant_08/eb_house_plant_03",
+            new Vector3(0f, ceilingY - 0.7f,  3.5f), 0.45f, root.transform, anchorTop: true, ceilingY);
+
+        // En hauteur : sur les bacs/planters (côté E et W) et sur la table centrale
+        SpawnDecorPlant("Decorations/Plants/Plant_06/eb_house_plant_01",
+            new Vector3(1.1f, GroundY + 1.05f, 0f), 0.45f, root.transform, anchorTop: false);
+        SpawnDecorPlant("Decorations/Plants/Plant_09/indoor_plant_02",
+            new Vector3(-3.3f, GroundY + 0.55f, -4.0f), 0.50f, root.transform, anchorTop: false);
+        SpawnDecorPlant("Decorations/Plants/Plant_10/lowpoly_plant",
+            new Vector3( 3.3f, GroundY + 0.55f,  4.0f), 0.50f, root.transform, anchorTop: false);
+    }
+
+    // Instancie une plante déco, l'auto-scale, applique materials, et ajoute une corde si suspendue
+    private void SpawnDecorPlant(string resPath, Vector3 worldPos, float targetHeight,
+                                 Transform parent, bool anchorTop, float ceilingY = 0f)
+    {
+        GameObject prefab = Resources.Load<GameObject>(resPath);
+        if (prefab == null)
+        {
+            Debug.LogWarning($"[Deco] Prefab introuvable : {resPath}");
+            return;
+        }
+
+        GameObject inst = Instantiate(prefab, worldPos,
+            Quaternion.Euler(0, Random.Range(0f, 360f), 0), parent);
+        inst.name = resPath.Substring(resPath.LastIndexOf('/') + 1);
+
+        Renderer[] rs = inst.GetComponentsInChildren<Renderer>();
+        if (rs.Length > 0)
+        {
+            Bounds b = rs[0].bounds;
+            for (int i = 1; i < rs.Length; i++) b.Encapsulate(rs[i].bounds);
+            if (b.size.y > 0.001f)
+                inst.transform.localScale = Vector3.one * (targetHeight / b.size.y);
+
+            // Réaligne : base posée sur worldPos.y (sol/étagère) ou sommet à worldPos.y (suspension)
+            Bounds b2 = inst.GetComponentInChildren<Renderer>().bounds;
+            for (int i = 1; i < rs.Length; i++) b2.Encapsulate(rs[i].bounds);
+            float yOffset = anchorTop ? worldPos.y - b2.max.y : worldPos.y - b2.min.y;
+            inst.transform.position += new Vector3(0, yOffset, 0);
+        }
+
+        FixPrefabMaterials(inst, new Color(0.30f, 0.55f, 0.20f));
+
+        foreach (var col in inst.GetComponentsInChildren<Collider>())
+            col.enabled = false;
+
+        if (anchorTop && ceilingY > worldPos.y)
+        {
+            GameObject rope = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+            rope.name = "DecoRope";
+            Destroy(rope.GetComponent<Collider>());
+            rope.transform.parent = parent;
+            float topY = worldPos.y; // sommet de la plante = point d'accroche bas
+            float ropeMidY = (ceilingY + topY) * 0.5f;
+            float ropeLen = ceilingY - topY;
+            rope.transform.position = new Vector3(worldPos.x, ropeMidY, worldPos.z);
+            rope.transform.localScale = new Vector3(0.02f, ropeLen * 0.5f, 0.02f);
+            var rr = rope.GetComponent<Renderer>();
+            if (rr != null)
+            {
+                var ropeMat = new Material(Shader.Find("Standard"));
+                ropeMat.color = new Color(0.32f, 0.20f, 0.10f);
+                ropeMat.SetFloat("_Glossiness", 0.05f);
+                rr.sharedMaterial = ropeMat;
+            }
+        }
     }
 
     // ─────────────────────────────────────────────
