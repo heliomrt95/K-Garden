@@ -164,44 +164,54 @@ public class PotInteraction : MonoBehaviour
 
         if (nextIdx < 3)
         {
-            // Spawn une graine ramassable à côté du pot
-            GameObject seed = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-            seed.name = $"DroppedSeed_{nextIdx}";
-            seed.tag = "Pickup";
-            seed.transform.position = transform.position + new Vector3(0, 1.4f, 0);
-            seed.transform.localScale = Vector3.one * 0.18f;
-            seed.GetComponent<Renderer>().material.color = GetSeedColor(nextIdx);
-
-            Rigidbody rb = seed.AddComponent<Rigidbody>();
-            rb.useGravity = true;
-            rb.mass = 0.05f;
-
-            ItemPickup pickup = seed.AddComponent<ItemPickup>();
-            pickup.itemType = ItemType.Seed;
-            pickup.seedIndex = nextIdx;
+            SpawnDroppedSeed(nextIdx, 0f);
         }
         else
         {
             // Toutes les plantes ordinaires ont été cultivées : on lâche les 3 graines pour la plante boss
             for (int i = 0; i < 3; i++)
-            {
-                GameObject seed = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-                seed.name = $"BossSeed_{i}";
-                seed.tag = "Pickup";
-                seed.transform.position = transform.position + new Vector3(i * 0.3f - 0.3f, 1.4f, 0);
-                seed.transform.localScale = Vector3.one * 0.2f;
-                seed.GetComponent<Renderer>().material.color = GetSeedColor(i);
-
-                Rigidbody rb = seed.AddComponent<Rigidbody>();
-                rb.useGravity = true;
-
-                ItemPickup pickup = seed.AddComponent<ItemPickup>();
-                pickup.itemType = ItemType.Seed;
-                pickup.seedIndex = i;
-            }
-            // Spawn la zone de plantation du boss
+                SpawnDroppedSeed(i, i * 0.4f - 0.4f);
             CarnivorousBoss.SpawnBossPot();
         }
+    }
+
+    private void SpawnDroppedSeed(int seedIdx, float xOffset)
+    {
+        // Spawne la graine SUR LE CÔTÉ du pot (pas dessus, pour éviter qu'elle reste coincée
+        // dans la plante mature). Position : à 0.7 m à côté, à 1.5 m de hauteur.
+        Vector3 sidePos = transform.position + new Vector3(0.7f + xOffset, 1.5f, 0f);
+
+        GameObject seed = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+        seed.name = $"DroppedSeed_{seedIdx}";
+        seed.tag = "Pickup";
+        seed.transform.position = sidePos;
+        seed.transform.localScale = Vector3.one * 0.20f;
+
+        // Matériau visible avec émission pour bien repérer la graine
+        Color seedColor = GetSeedColor(seedIdx);
+        Material mat = new Material(Shader.Find("Standard"));
+        mat.color = seedColor;
+        mat.EnableKeyword("_EMISSION");
+        mat.SetColor("_EmissionColor", seedColor * 0.6f);
+        seed.GetComponent<Renderer>().sharedMaterial = mat;
+
+        // Physique : gravité + collision continue (évite tunneling à travers le sol)
+        Rigidbody rb = seed.AddComponent<Rigidbody>();
+        rb.useGravity = true;
+        rb.mass = 0.05f;
+        rb.collisionDetectionMode = CollisionDetectionMode.Continuous;
+        rb.interpolation = RigidbodyInterpolation.Interpolate;
+
+        // Trigger sphère pour faciliter le pickup au raycast
+        SphereCollider sc = seed.AddComponent<SphereCollider>();
+        sc.isTrigger = true;
+        sc.radius = 0.35f; // zone d'interaction plus large que la graine elle-même
+
+        ItemPickup pickup = seed.AddComponent<ItemPickup>();
+        pickup.itemType = ItemType.Seed;
+        pickup.seedIndex = seedIdx;
+
+        Debug.Log($"[Pot {name}] Graine #{seedIdx} lâchée à {sidePos}");
     }
 
     private IEnumerator FlashSoilColor(Color c)

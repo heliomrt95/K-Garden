@@ -14,7 +14,7 @@ using UnityEngine.AI;
 public class SceneSetup : MonoBehaviour
 {
     public bool autoSpawnPlayer = true;
-    public Vector3 playerSpawnPosition = new Vector3(0, 1f, -8f);
+    public Vector3 playerSpawnPosition = new Vector3(0, 1f, -4f);
 
     private void Awake()
     {
@@ -59,9 +59,20 @@ public class SceneSetup : MonoBehaviour
         GameObject defaultCam = GameObject.Find("Main Camera");
         if (defaultCam != null) defaultCam.SetActive(false);
 
+        // Auto-corrige le spawn si la valeur sérialisée est hors de la serre actuelle
+        Vector3 spawnPos = playerSpawnPosition;
+        LevelBuilder lb = FindObjectOfType<LevelBuilder>();
+        if (lb != null)
+        {
+            float halfLen = lb.greenhouseLength / 2f;
+            float halfWid = lb.greenhouseWidth / 2f;
+            if (Mathf.Abs(spawnPos.z) > halfLen - 0.8f || Mathf.Abs(spawnPos.x) > halfWid - 0.8f)
+                spawnPos = new Vector3(0, 1f, -halfLen + 2f);
+        }
+
         GameObject player = new GameObject("Player");
         player.tag = "Player";
-        player.transform.position = playerSpawnPosition;
+        player.transform.position = spawnPos;
 
         CharacterController cc = player.AddComponent<CharacterController>();
         cc.height = 1.8f;
