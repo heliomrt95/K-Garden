@@ -75,10 +75,16 @@ public class LevelBuilder : MonoBehaviour
     {
         BuildOutdoorTerrain();
 
-        // Si un modèle de serre custom (FBX exporté depuis SketchUp) est présent
-        // dans Resources/Greenhouse/Greenhouse.fbx, on l'utilise à la place des
-        // murs/toit/cadre procéduraux. Le sol reste procédural (gameplay).
-        GameObject greenhouseFbx = Resources.Load<GameObject>("Greenhouse/Greenhouse");
+        // Si un modèle de serre custom (FBX/DAE/OBJ exporté depuis SketchUp Free,
+        // Blender, etc.) est présent dans Resources/Greenhouse/, on l'utilise à la
+        // place des murs/toit/cadre procéduraux. Le sol reste procédural.
+        // Unity traite .fbx/.dae/.obj comme des GameObject importés par leur nom
+        // sans extension : on essaie les noms usuels.
+        GameObject greenhouseFbx =
+            Resources.Load<GameObject>("Greenhouse/Greenhouse")
+            ?? Resources.Load<GameObject>("Greenhouse/greenhouse")
+            ?? Resources.Load<GameObject>("Greenhouse/Serre")
+            ?? Resources.Load<GameObject>("Greenhouse/serre");
         if (greenhouseFbx != null)
         {
             BuildFloor();
@@ -386,13 +392,14 @@ public class LevelBuilder : MonoBehaviour
             "Decorations/PP_Grass_11",
             "Decorations/PP_Grass_15");
 
-        GameObject[] meadows = LoadPrefabs(
+        // PP_Meadow_07/08 et PP_Forest_Mountain_Moss_* sont en réalité de grosses
+        // collines/montagnes (malgré leur nom). On les utilise uniquement comme
+        // toile de fond très lointaine, pas comme décor de sol.
+        GameObject[] mountains = LoadPrefabs(
+            "Decorations/PP_Forest_Mountain_Moss_01",
+            "Decorations/PP_Forest_Mountain_Moss_02",
             "Decorations/PP_Meadow_07",
             "Decorations/PP_Meadow_08");
-
-        GameObject[] moss = LoadPrefabs(
-            "Decorations/PP_Forest_Mountain_Moss_01",
-            "Decorations/PP_Forest_Mountain_Moss_02");
 
         float ghHalf = Mathf.Max(greenhouseWidth, greenhouseLength) / 2f;
 
@@ -415,17 +422,18 @@ public class LevelBuilder : MonoBehaviour
         // 4) Bosquets serrés (clusters de 4–6 arbres)
         ScatterTreeClusters(trees, 30, 35f, 90f, treeGreen);
 
-        // ── GROS ROCHERS — TRÈS LOIN ET PETITS, en bordure d'horizon ──
-        ScatterPrefabs(rocks, 20, 95f, MapHalf - 5f, 0.25f, 0.5f, rockGray);
+        // ── GROS ROCHERS — TRÈS LOIN, à l'horizon ──
+        ScatterPrefabs(rocks, 20, 110f, MapHalf - 5f, 0.25f, 0.5f, rockGray);
         // Petits rochers / cailloux : éparpillés au sol
-        ScatterPrefabs(pebbles, 60, ghHalf + 8f, 70f, 0.15f, 0.3f, rockGray);
+        ScatterPrefabs(pebbles, 60, ghHalf + 8f, 70f, 0.12f, 0.25f, rockGray);
 
-        // ── SOUS-BOIS ──
-        ScatterPrefabs(moss, 90, ghHalf + 4f, 80f, 0.25f, 0.5f, mossGreen);
+        // ── MONTAGNES LOINTAINES — placées contre le bord de la map ──
+        ScatterPrefabs(mountains, 18, 130f, MapHalf - 5f, 0.6f, 1.1f, mossGreen);
+
+        // ── SOUS-BOIS — uniquement de petits éléments de sol près de la serre ──
         ScatterPrefabs(flowers, 140, ghHalf + 3f, 40f, 0.35f, 0.6f, flowerYellow);
         ScatterPrefabs(grass, 280, ghHalf + 2f, 70f, 0.3f, 0.55f, grassGreen);
         ScatterPrefabs(mushrooms, 70, ghHalf + 10f, 75f, 0.3f, 0.5f, mushroomOrange);
-        ScatterPrefabs(meadows, 50, ghHalf + 6f, 60f, 0.35f, 0.6f, grassGreen);
     }
 
     // Crée des bosquets : un point central, puis 4-6 arbres autour à 1-3 m
