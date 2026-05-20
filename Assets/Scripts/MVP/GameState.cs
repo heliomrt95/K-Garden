@@ -1,7 +1,7 @@
 // GameState.cs
 // -----------------------------------------------------------------------------
-// "Mémoire partagée" du jeu : une seule variable accessible partout.
-// Ici on stocke juste : quel spray le joueur a choisi.
+// "Mémoire partagée" du jeu : une variable accessible partout.
+// Ici on stocke juste : est-ce que le joueur tient l'arrosoir ?
 //
 // Pas de MonoBehaviour, pas de GameObject : c'est une classe "static".
 // Du coup pas besoin de l'attacher à quoi que ce soit dans Unity, elle existe
@@ -10,7 +10,7 @@
 
 public static class GameState
 {
-    // Le spray actuellement sélectionné par le joueur.
-    // Valeurs possibles : "aucun", "eau", "engrais", "pesticide"... (à toi de choisir)
-    public static string spraySelectionne = "aucun";
+    // Le joueur a-t-il l'arrosoir en main ?
+    // true = oui (il peut arroser), false = non
+    public static bool arrosoirEnMain = false;
 }
