@@ -21,7 +21,10 @@ public class Plant : MonoBehaviour
     void Start()
     {
         rend = GetComponent<Renderer>();
-        MettreAJourCouleur();
+        // NB : on ne touche PAS à la couleur du matériau au démarrage. On laisse
+        // celle du modèle d'origine. Le matériau ne change que lors d'un
+        // arrosage explicite, ce qui évite de repeindre par erreur le sol ou
+        // tout autre objet sur lequel un Plant aurait été attaché.
     }
 
     public void EssayerArroser()
@@ -37,15 +40,8 @@ public class Plant : MonoBehaviour
             return;
         }
         etatActuel = Etat.Arrosee;
-        MettreAJourCouleur();
+        if (rend != null) rend.material.color = new Color(0.3f, 0.8f, 0.3f);
         GameState.LibererMain(); // arrosoir retourne sur la table
         Debug.Log("Plante arrosée !");
-    }
-
-    void MettreAJourCouleur()
-    {
-        if (rend == null) return;
-        if (etatActuel == Etat.Sec)     rend.material.color = new Color(0.6f, 0.4f, 0.2f);
-        if (etatActuel == Etat.Arrosee) rend.material.color = new Color(0.3f, 0.8f, 0.3f);
     }
 }
