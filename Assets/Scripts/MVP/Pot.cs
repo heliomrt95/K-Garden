@@ -28,6 +28,7 @@ public class Pot : MonoBehaviour
     public float dureeRemplirTerre = 1.2f;
     public float dureePlanterGraine = 1.5f;
     public float dureeArroser = 1.0f;
+    public float dureeCreuser = 1.5f;  // pelle : enlève la plante mature ou morte
 
     [Header("Croissance")]
     public float dureeCroissance = 30f;   // secondes pour atteindre l'adulte
@@ -59,9 +60,14 @@ public class Pot : MonoBehaviour
     void Start()
     {
         vie = vieMax;
-        if (visuelTerre  != null) visuelTerre.SetActive(false);
-        if (visuelGraine != null) visuelGraine.SetActive(false);
-        if (visuelEau    != null) visuelEau.SetActive(false);
+        if (visuelTerre != null) visuelTerre.SetActive(false);
+        if (visuelGraine != null)
+        {
+            // Mémorise la scale d'origine pour pouvoir y revenir après un Reset
+            scaleGraineInit = visuelGraine.transform.localScale;
+            visuelGraine.SetActive(false);
+        }
+        if (visuelEau != null) visuelEau.SetActive(false);
     }
 
     void Update()
@@ -122,6 +128,11 @@ public class Pot : MonoBehaviour
     // ── Actions du joueur (appelées par Player.cs) ───────────────────────────
     public float DureeAction(string item)
     {
+        // La pelle : enlève une plante mature (récompense déjà donnée) OU morte.
+        // Doit être checkée AVANT le test "if (morte) return 0f" sinon une plante
+        // morte ne serait jamais retirable.
+        if (item == "pelle" && (recompenseDonnee || morte)) return dureeCreuser;
+
         if (morte) return 0f;
         if (item == "terre" && !aTerre)                        return dureeRemplirTerre;
         if (EstUneGraine(item) && aTerre && !aGraine)          return dureePlanterGraine;
@@ -148,7 +159,9 @@ public class Pot : MonoBehaviour
 
     public string RaisonRefus(string item)
     {
-        if (morte)             return "Cette plante est morte.";
+        if (item == "pelle")   return (recompenseDonnee || morte) ? ""
+                                     : "Rien à enlever : laisse la plante pousser.";
+        if (morte)             return "Cette plante est morte. Utilise la pelle pour la retirer.";
         if (item == "")        return "Mains vides. Prends terre, graine ou arrosoir.";
         if (item == "terre")   return aTerre  ? "Le pot a déjà de la terre." : "";
         if (EstUneGraine(item))return !aTerre ? "Mets d'abord de la terre dans le pot." :
@@ -164,6 +177,15 @@ public class Pot : MonoBehaviour
 
     public void ValiderAction(string item)
     {
+        // La pelle marche même si la plante est morte (= nettoyage)
+        if (item == "pelle" && (recompenseDonnee || morte))
+        {
+            ReinitialiserPot();
+            // La pelle est un outil → retourne à sa place, n'est PAS consommée
+            // GameState.consommerAuRelache vaut false pour les Pickup, donc OK
+            return;
+        }
+
         if (morte) return;
 
         if (item == "terre" && !aTerre)
@@ -249,6 +271,44 @@ public class Pot : MonoBehaviour
         nuisibles.Add(n);
         Debug.Log(name + " : nuisible " + (volant ? "volant" : "au sol") +
                   " apparu (" + (nuisiblesSpawnes + 1) + "/" + taillesAttaque + ").");
+    }
+
+    // ── Reset complet du pot (déclenché par la pelle) ────────────────────────
+    void ReinitialiserPot()
+    {
+        // 1) Détruit les nuisibles restants
+        foreach (var n in nuisibles) if (n != null) Destroy(n.gameObject);
+        nuisibles.Clear();
+
+        // 2) Cache et reset les visuels
+        if (visuelTerre  != null) visuelTerre.SetActive(false);
+        if (visuelEau    != null) visuelEau.SetActive(false);
+        if (visuelGraine != null)
+        {
+            visuelGraine.transform.localScale = scaleGraineInit;
+            // Remet la couleur d'origine si la plante était morte
+            Renderer r = visuelGraine.GetComponent<Renderer>();
+            if (r != null) r.material.color = new Color(0.30f, 0.65f, 0.30f);
+            visuelGraine.SetActive(false);
+        }
+
+        // 3) Reset de l'état logique
+        aTerre = false;
+        aGraine = false;
+        aEau = false;
+        morte = false;
+        recompenseDonnee = false;
+        attaqueDeclenchee = false;
+        attaqueTerminee = false;
+        niveauPlante = 1;
+        nuisiblesSpawnes = 0;
+        tempsDepuisArrosage = 0f;
+        tempsDepuisDernierSpawn = 0f;
+        vie = vieMax;
+
+        // 4) La pelle reste dans la main → on libère pour la retourner à sa place
+        GameState.LibererMain();
+        Debug.Log(name + " : pot vidé. Tu peux replanter.");
     }
 
     void Mourir()
