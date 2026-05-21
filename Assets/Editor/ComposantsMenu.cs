@@ -77,19 +77,6 @@ public static class ComposantsMenu
         Debug.Log("[Composants] '" + go.name + "' est maintenant un Pot (Terre + Eau enfants cachés).");
     }
 
-    // ── Plante ────────────────────────────────────────────────────────────────
-    [MenuItem("Tools/Composants/Marquer comme Plante")]
-    public static void MarquerPlante()
-    {
-        GameObject go = Selection.activeGameObject;
-        if (go == null) { Avertir("Sélectionne d'abord un GameObject."); return; }
-
-        if (go.GetComponent<Plant>() == null) go.AddComponent<Plant>();
-        AssureCollider(go);
-        EditorUtility.SetDirty(go);
-        Debug.Log("[Composants] '" + go.name + "' est maintenant une Plante (état Sec au démarrage).");
-    }
-
     // ─────────────────────────────────────────────────────────────────────────
     // Helpers internes
     // ─────────────────────────────────────────────────────────────────────────

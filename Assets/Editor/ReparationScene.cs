@@ -34,13 +34,18 @@ public static class ReparationScene
 
             string nom = go.name.ToLower();
             bool estSol = nom == "plane" || nom == "sol" || nom == "ground" || nom == "floor";
-            bool estPot = nom.StartsWith("pot");
+
+            // Détecte les objets qui devraient être des pots :
+            //   - nom commence par "pot"
+            //   - ou bien ils ont un Plant attaché (Plant est obsolète, tout
+            //     ancien Plant est en réalité un pot, sauf sur le sol)
+            bool aPlant = go.GetComponent<Plant>() != null;
+            bool estPot = nom.StartsWith("pot") || (aPlant && !estSol);
 
             if (!estSol && !estPot) continue;
 
-            // 1) Retire tous les Plant attachés
-            Plant[] plants = go.GetComponents<Plant>();
-            foreach (var p in plants)
+            // 1) Retire tous les Plant attachés (concept obsolète)
+            foreach (var p in go.GetComponents<Plant>())
             {
                 Object.DestroyImmediate(p);
                 plantRetires++;

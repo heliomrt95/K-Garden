@@ -88,7 +88,6 @@ public class Player : MonoBehaviour
             if (cible.GetComponentInParent<Pickup>() != null) composants += " [Pickup]";
             if (cible.GetComponentInParent<Source>() != null) composants += " [Source]";
             if (cible.GetComponentInParent<Pot>()    != null) composants += " [Pot]";
-            if (cible.GetComponent<Plant>()           != null) composants += " [Plant]";
             viseDebug = "Visé : " + root + composants;
         }
 
@@ -117,14 +116,6 @@ public class Player : MonoBehaviour
                 {
                     messageInfo = pot.RaisonRefus(GameState.itemEnMain);
                 }
-                return;
-            }
-
-            // Plante : action progressive (arrosage seulement)
-            Plant plante = cible.GetComponent<Plant>();
-            if (plante != null && GameState.itemEnMain == "eau")
-            {
-                DemarrerAction(plante.gameObject, "eau", 1.0f);
                 return;
             }
         }
@@ -166,9 +157,6 @@ public class Player : MonoBehaviour
 
         Pot pot = cibleActuelle.GetComponent<Pot>();
         if (pot != null) pot.ValiderAction(itemAuDebut);
-
-        Plant plante = cibleActuelle.GetComponent<Plant>();
-        if (plante != null) plante.EssayerArroser();
 
         ResetAction();
     }
