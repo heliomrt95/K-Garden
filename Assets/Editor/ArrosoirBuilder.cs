@@ -1,19 +1,11 @@
 // ArrosoirBuilder.cs
 // -----------------------------------------------------------------------------
-// Ajoute un menu "Tools > Créer Arrosoir" qui construit dans la scène courante
-// un arrosoir simple en assemblant des primitives Unity (cylindres, sphère, cubes).
+// Menu "Tools > Créer Arrosoir" : instancie dans la scène le modèle 3D
+// WateringCan.fbx (Assets/Resources/Tools/WateringCan.fbx), applique un
+// matériau vert sur tout le corps, puis ajoute un disque d'eau bleu visible
+// par l'orifice du haut. Attache automatiquement le script Pickup (type="eau").
 //
-// Structure créée :
-//   Arrosoir (Empty)
-//   ├── Corps        (Cylinder, gros)
-//   ├── Bec          (Cylinder fin, incliné)
-//   ├── Pomme        (Sphere au bout du bec)
-//   ├── Anse_Gauche  (Cube fin vertical)
-//   ├── Anse_Droite  (Cube fin vertical)
-//   └── Anse_Haut    (Cube fin horizontal)
-//
-// Tout est en matériau Metal (gris brillant), créé dans Assets/Resources/Materials/
-// si pas déjà présent.
+// L'objet est créé sous le nom "Arrosoir", posé sur Y=0, ~25 cm de haut.
 // -----------------------------------------------------------------------------
 
 using UnityEditor;
@@ -22,89 +14,98 @@ using System.IO;
 
 public static class ArrosoirBuilder
 {
+    const string CHEMIN_FBX = "Assets/Resources/Tools/WateringCan.fbx";
+
     [MenuItem("Tools/Créer Arrosoir")]
     public static void CreerArrosoir()
     {
-        // 1) Récupère (ou crée) le matériau métal
-        Material metal = ChargerOuCreerMateriau("Metal",
-            new Color(0.72f, 0.74f, 0.78f), metallique: 0.8f, brillance: 0.6f);
+        // 1) Charge le modèle 3D
+        GameObject fbx = AssetDatabase.LoadAssetAtPath<GameObject>(CHEMIN_FBX);
+        if (fbx == null)
+        {
+            EditorUtility.DisplayDialog("Modèle introuvable",
+                "WateringCan.fbx introuvable à " + CHEMIN_FBX, "OK");
+            return;
+        }
 
-        // 2) Parent vide (sert à tout déplacer ensemble)
-        GameObject arrosoir = new GameObject("Arrosoir");
+        // 2) Instancie le FBX dans la scène
+        GameObject arrosoir = (GameObject)PrefabUtility.InstantiatePrefab(fbx);
+        arrosoir.name = "Arrosoir";
         arrosoir.transform.position = Vector3.zero;
 
-        // 3) Corps : gros cylindre vertical
-        CreerPiece("Corps", PrimitiveType.Cylinder,
-            pos:   new Vector3(0f, 0.2f, 0f),
-            scale: new Vector3(0.4f, 0.2f, 0.4f),
-            rot:   Quaternion.identity,
-            mat:   metal, parent: arrosoir.transform);
+        // 3) Auto-scale : on cible une hauteur de ~25 cm + pose la base à Y=0
+        Renderer[] rs = arrosoir.GetComponentsInChildren<Renderer>();
+        Bounds bw = new Bounds();
+        if (rs.Length > 0)
+        {
+            Bounds b = rs[0].bounds;
+            for (int i = 1; i < rs.Length; i++) b.Encapsulate(rs[i].bounds);
+            if (b.size.y > 0.001f)
+                arrosoir.transform.localScale = Vector3.one * (0.25f / b.size.y);
 
-        // 4) Bec : cylindre fin et incliné, qui sort sur le côté droit
-        CreerPiece("Bec", PrimitiveType.Cylinder,
-            pos:   new Vector3(0.25f, 0.35f, 0f),
-            scale: new Vector3(0.05f, 0.2f, 0.05f),
-            rot:   Quaternion.Euler(0f, 0f, -60f), // incliné vers le haut-droite
-            mat:   metal, parent: arrosoir.transform);
+            bw = rs[0].bounds;
+            for (int i = 1; i < rs.Length; i++) bw.Encapsulate(rs[i].bounds);
+            arrosoir.transform.position += new Vector3(0, -bw.min.y, 0);
 
-        // 5) Pomme d'arrosoir : sphère au bout du bec
-        CreerPiece("Pomme", PrimitiveType.Sphere,
-            pos:   new Vector3(0.43f, 0.50f, 0f),
-            scale: new Vector3(0.12f, 0.12f, 0.12f),
-            rot:   Quaternion.identity,
-            mat:   metal, parent: arrosoir.transform);
+            // Recalcule après reposition pour les enfants Eau
+            bw = rs[0].bounds;
+            for (int i = 1; i < rs.Length; i++) bw.Encapsulate(rs[i].bounds);
+        }
 
-        // 6) Anse en "n" inversé : 2 supports verticaux + 1 barre horizontale
-        CreerPiece("Anse_Gauche", PrimitiveType.Cube,
-            pos:   new Vector3(-0.15f, 0.50f, 0f),
-            scale: new Vector3(0.04f, 0.20f, 0.04f),
-            rot:   Quaternion.identity,
-            mat:   metal, parent: arrosoir.transform);
+        // 4) Applique le matériau vert (ArrosoirCorps) à tous les Renderer du modèle
+        Material vert = ChargerOuCreerMateriau("ArrosoirCorps",
+            new Color(0.20f, 0.55f, 0.30f), metallique: 0.3f, brillance: 0.55f);
+        foreach (Renderer rend in arrosoir.GetComponentsInChildren<Renderer>())
+        {
+            Material[] mats = rend.sharedMaterials;
+            for (int i = 0; i < mats.Length; i++) mats[i] = vert;
+            rend.sharedMaterials = mats;
+        }
 
-        CreerPiece("Anse_Droite", PrimitiveType.Cube,
-            pos:   new Vector3(0.15f, 0.50f, 0f),
-            scale: new Vector3(0.04f, 0.20f, 0.04f),
-            rot:   Quaternion.identity,
-            mat:   metal, parent: arrosoir.transform);
+        // 5) Ajoute un disque d'eau visible par l'orifice du haut (le réservoir)
+        //    On utilise le matériau Water.mat (eau transparente brillante)
+        Material eau = AssetDatabase.LoadAssetAtPath<Material>("Assets/Resources/Materials/Water.mat");
+        if (eau == null)
+            eau = ChargerOuCreerMateriau("Water", new Color(0.25f, 0.55f, 0.85f), metallique: 0.2f, brillance: 0.9f);
 
-        CreerPiece("Anse_Haut", PrimitiveType.Cube,
-            pos:   new Vector3(0f, 0.60f, 0f),
-            scale: new Vector3(0.34f, 0.04f, 0.04f),
-            rot:   Quaternion.identity,
-            mat:   metal, parent: arrosoir.transform);
+        GameObject eauDisque = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+        eauDisque.name = "Eau";
+        Object.DestroyImmediate(eauDisque.GetComponent<Collider>());
+        eauDisque.transform.SetParent(arrosoir.transform);
 
-        // Auto-ajoute le script Pickup (type="eau") pour que l'arrosoir soit ramassable
+        // Position : au sommet de l'arrosoir, légèrement enfoncé
+        Vector3 ls = arrosoir.transform.lossyScale;
+        Vector3 worldPosEau = new Vector3(
+            bw.center.x,
+            bw.max.y - bw.size.y * 0.06f,
+            bw.center.z);
+        eauDisque.transform.position = worldPosEau;
+
+        // Taille : un peu plus petit que le diamètre du corps, très plat
+        float diametreLocal = Mathf.Min(bw.size.x, bw.size.z) * 0.55f;
+        eauDisque.transform.localScale = new Vector3(
+            diametreLocal / Mathf.Max(0.001f, ls.x),
+            (bw.size.y * 0.02f) / Mathf.Max(0.001f, ls.y),
+            diametreLocal / Mathf.Max(0.001f, ls.z));
+        eauDisque.GetComponent<Renderer>().sharedMaterial = eau;
+
+        // 6) Script Pickup (type="eau") pour rendre l'arrosoir ramassable
         Pickup pickup = arrosoir.AddComponent<Pickup>();
         pickup.typeItem = "eau";
         pickup.positionEnMain = new Vector3(0.35f, -0.25f, 0.55f);
         pickup.rotationEnMain = new Vector3(15f, -20f, 0f);
 
-        // Ajoute un BoxCollider sur le parent pour rendre l'arrosoir cliquable
-        // (les enfants ont déjà leurs propres colliders, mais ce collider global facilite le clic)
+        // 7) Collider global pour faciliter le clic
         BoxCollider bc = arrosoir.AddComponent<BoxCollider>();
-        bc.center = new Vector3(0.1f, 0.35f, 0f);
-        bc.size = new Vector3(0.7f, 0.7f, 0.4f);
+        bc.center = arrosoir.transform.InverseTransformPoint(bw.center);
+        bc.size = new Vector3(bw.size.x / ls.x, bw.size.y / ls.y, bw.size.z / ls.z);
 
         Selection.activeGameObject = arrosoir;
-        Debug.Log("✅ Arrosoir créé à l'origine (0,0,0) — ramassable (type=eau). Déplace-le sur la table.");
+        Debug.Log("✅ Arrosoir vert créé à l'origine — avec disque d'eau visible. Ramassable (type=eau).");
     }
 
-    // ── Crée une primitive enfant avec ses paramètres ──────────────────────────
-    static void CreerPiece(string nom, PrimitiveType type, Vector3 pos, Vector3 scale,
-                           Quaternion rot, Material mat, Transform parent)
-    {
-        GameObject piece = GameObject.CreatePrimitive(type);
-        piece.name = nom;
-        piece.transform.parent = parent;
-        piece.transform.localPosition = pos;
-        piece.transform.localScale = scale;
-        piece.transform.localRotation = rot;
-        piece.GetComponent<Renderer>().sharedMaterial = mat;
-    }
-
-    // ── Charge un matériau existant ou en crée un nouveau ─────────────────────
     static Material ChargerOuCreerMateriau(string nom, Color couleur,
-                                            float metallique = 0f, float brillance = 0.1f)
+                                            float metallique = 0f, float brillance = 0.2f)
     {
         string dossier = "Assets/Resources/Materials";
         string chemin = dossier + "/" + nom + ".mat";

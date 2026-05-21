@@ -38,7 +38,13 @@ public static class ComposantsMenu
     [MenuItem("Tools/Composants/Marquer comme Source de Terre")]
     public static void MarquerSourceTerre()
     {
-        AjouterSource("terre", new Color(0.28f, 0.18f, 0.10f));
+        AjouterSource("terre", new Color(0.22f, 0.13f, 0.07f));
+    }
+
+    [MenuItem("Tools/Composants/Marquer comme Source de Graines")]
+    public static void MarquerSourceGraines()
+    {
+        AjouterSource("graine", new Color(0.55f, 0.40f, 0.18f));
     }
 
     // ── Pot ───────────────────────────────────────────────────────────────────
@@ -58,11 +64,14 @@ public static class ComposantsMenu
         // 3) Crée les enfants Terre et Eau (cachés au start) s'ils n'existent pas
         Bounds wb = CalculerBounds(go);
         pot.visuelTerre = TrouverOuCreerEnfantCube(go, "Terre", wb,
-            offsetYRatio: 0.20f, taillXZ: 0.70f, taillY: 0.40f,
-            couleur: new Color(0.28f, 0.18f, 0.10f), nomMateriau: "Earth");
+            offsetYRatio: 0.20f, taillXZ: 0.78f, taillY: 0.40f,
+            couleur: new Color(0.22f, 0.13f, 0.07f), nomMateriau: "Earth");
+        pot.visuelGraine = TrouverOuCreerEnfantCube(go, "Graine", wb,
+            offsetYRatio: 0.55f, taillXZ: 0.06f, taillY: 0.60f,
+            couleur: new Color(0.30f, 0.65f, 0.30f), nomMateriau: "Sprout");
         pot.visuelEau = TrouverOuCreerEnfantCube(go, "Eau", wb,
-            offsetYRatio: 0.42f, taillXZ: 0.62f, taillY: 0.05f,
-            couleur: new Color(0.30f, 0.55f, 0.85f), nomMateriau: "Water");
+            offsetYRatio: 0.40f, taillXZ: 0.72f, taillY: 0.05f,
+            couleur: new Color(0.25f, 0.55f, 0.85f), nomMateriau: "Water");
 
         EditorUtility.SetDirty(go);
         Debug.Log("[Composants] '" + go.name + "' est maintenant un Pot (Terre + Eau enfants cachés).");
@@ -116,7 +125,8 @@ public static class ComposantsMenu
         Debug.Log("[Composants] '" + go.name + "' est maintenant une Source (type=" + typeItem + ").");
     }
 
-    // ── Crée (ou retrouve) un enfant Cube avec position/scale calculés sur les bounds parent
+    // ── Crée (ou retrouve) un enfant Cylindre (forme ronde) avec position/scale
+    //    calculés sur les bounds parent. Un cylindre ne dépasse pas des bords ronds d'un pot.
     static GameObject TrouverOuCreerEnfantCube(GameObject parent, string nom, Bounds wb,
                                                 float offsetYRatio, float taillXZ, float taillY,
                                                 Color couleur, string nomMateriau)
@@ -124,26 +134,27 @@ public static class ComposantsMenu
         Transform existing = parent.transform.Find(nom);
         if (existing != null) return existing.gameObject;
 
-        GameObject cube = GameObject.CreatePrimitive(PrimitiveType.Cube);
-        cube.name = nom;
-        Object.DestroyImmediate(cube.GetComponent<Collider>());
-        cube.transform.SetParent(parent.transform);
+        GameObject go = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+        go.name = nom;
+        Object.DestroyImmediate(go.GetComponent<Collider>());
+        go.transform.SetParent(parent.transform);
 
         // Position monde : au centre des bounds, décalée vers le haut
         Vector3 worldPos = new Vector3(wb.center.x,
                                        wb.center.y + wb.size.y * offsetYRatio,
                                        wb.center.z);
-        cube.transform.position = worldPos;
+        go.transform.position = worldPos;
 
-        // Scale local en compensant le scale du parent
+        // Scale local en compensant le scale du parent. Le cylindre Unity a une
+        // hauteur native de 2 unités (de -1 à +1 sur Y), d'où le facteur 0.5 sur Y.
         Vector3 ls = parent.transform.lossyScale;
-        cube.transform.localScale = new Vector3(
+        go.transform.localScale = new Vector3(
             (wb.size.x * taillXZ) / Mathf.Max(0.001f, ls.x),
-            (wb.size.y * taillY)  / Mathf.Max(0.001f, ls.y),
+            (wb.size.y * taillY * 0.5f) / Mathf.Max(0.001f, ls.y),
             (wb.size.z * taillXZ) / Mathf.Max(0.001f, ls.z));
 
-        cube.GetComponent<Renderer>().sharedMaterial = ChargerOuCreerMateriau(nomMateriau, couleur);
-        return cube;
+        go.GetComponent<Renderer>().sharedMaterial = ChargerOuCreerMateriau(nomMateriau, couleur);
+        return go;
     }
 
     static Bounds CalculerBounds(GameObject go)

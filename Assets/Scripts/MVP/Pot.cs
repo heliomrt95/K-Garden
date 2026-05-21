@@ -1,63 +1,96 @@
 // Pot.cs
 // -----------------------------------------------------------------------------
-// À mettre sur un pot vide qui peut recevoir de la terre puis de l'eau.
+// À mettre sur un pot vide qui passe par 3 étapes successives :
+//
+//   Vide → Terre → Graine plantée → Arrosé
 //
 // Composants Unity requis :
 //   - un Collider (pour être cliquable)
-//   - 2 enfants optionnels (à glisser dans l'Inspector) :
-//       * visuelTerre : un Cube/objet caché qui s'affiche quand le pot reçoit de la terre
-//       * visuelEau   : pareil pour l'eau
+//   - 3 enfants optionnels (à glisser dans l'Inspector) :
+//       * visuelTerre  : visuel terre (caché au start, affiché après "terre")
+//       * visuelGraine : visuel graine/pousse (caché au start, après "graine")
+//       * visuelEau    : visuel eau (caché au start, après "eau")
 //
-// Règle : il faut mettre de la terre AVANT de pouvoir mettre de l'eau.
+// Règles :
+//   - on ne peut pas planter une graine sans terre
+//   - on ne peut pas arroser sans graine plantée
+//
+// Le Player utilise DureeAction(item) et ValiderAction(item) pour gérer le
+// "clic maintenu avec barre de progression". Si DureeAction renvoie 0, l'item
+// n'est pas applicable au pot dans son état actuel.
 // -----------------------------------------------------------------------------
 
 using UnityEngine;
 
 public class Pot : MonoBehaviour
 {
-    // Glisse ici les GameObjects enfants à afficher quand on remplit
     public GameObject visuelTerre;
+    public GameObject visuelGraine;
     public GameObject visuelEau;
 
+    // Durées (secondes) du clic maintenu pour chaque action
+    public float dureeRemplirTerre = 1.2f;
+    public float dureePlanterGraine = 1.5f;
+    public float dureeArroser = 1.0f;
+
     private bool aTerre = false;
+    private bool aGraine = false;
     private bool aEau = false;
 
     void Start()
     {
-        // Au démarrage, terre et eau cachés
-        if (visuelTerre != null) visuelTerre.SetActive(false);
-        if (visuelEau != null) visuelEau.SetActive(false);
+        if (visuelTerre  != null) visuelTerre.SetActive(false);
+        if (visuelGraine != null) visuelGraine.SetActive(false);
+        if (visuelEau    != null) visuelEau.SetActive(false);
     }
 
-    // Appelé par Player.cs quand on clique sur ce pot
-    public void Utiliser()
+    // Renvoie la durée nécessaire pour appliquer l'item donné, ou 0 si l'action
+    // n'est pas possible actuellement (ex: graine sans terre, item inconnu...).
+    public float DureeAction(string item)
     {
-        string item = GameState.itemEnMain;
+        if (item == "terre" && !aTerre)             return dureeRemplirTerre;
+        if (item == "graine" && aTerre && !aGraine) return dureePlanterGraine;
+        if (item == "eau" && aGraine && !aEau)      return dureeArroser;
+        return 0f;
+    }
 
-        if (item == "terre")
+    // Message d'aide affiché quand le joueur clique sans pouvoir agir.
+    public string RaisonRefus(string item)
+    {
+        if (item == "")        return "Mains vides. Prends terre, graine ou arrosoir.";
+        if (item == "terre")   return aTerre  ? "Le pot a déjà de la terre." : "";
+        if (item == "graine")  return !aTerre ? "Mets d'abord de la terre dans le pot." :
+                                      aGraine ? "Une graine est déjà plantée." : "";
+        if (item == "eau")     return !aTerre  ? "Mets d'abord de la terre." :
+                                      !aGraine ? "Plante d'abord une graine." :
+                                       aEau    ? "Le pot est déjà arrosé." : "";
+        return "Cet item (" + item + ") ne va pas dans le pot.";
+    }
+
+    // Applique l'action après que la barre de progression soit pleine.
+    // Consomme la ressource en main (terre/graine) ou libère l'outil (arrosoir).
+    public void ValiderAction(string item)
+    {
+        if (item == "terre" && !aTerre)
         {
-            if (aTerre) { Debug.Log("Le pot a déjà de la terre."); return; }
             aTerre = true;
             if (visuelTerre != null) visuelTerre.SetActive(true);
-            GameState.LibererMain(); // consomme la terre (cube en main détruit)
+            GameState.LibererMain();
             Debug.Log("Pot rempli de terre.");
         }
-        else if (item == "eau")
+        else if (item == "graine" && aTerre && !aGraine)
         {
-            if (!aTerre) { Debug.Log("Mets d'abord de la terre dans le pot."); return; }
-            if (aEau)   { Debug.Log("Le pot est déjà arrosé."); return; }
+            aGraine = true;
+            if (visuelGraine != null) visuelGraine.SetActive(true);
+            GameState.LibererMain();
+            Debug.Log("Graine plantée.");
+        }
+        else if (item == "eau" && aGraine && !aEau)
+        {
             aEau = true;
             if (visuelEau != null) visuelEau.SetActive(true);
-            GameState.LibererMain(); // arrosoir retourne à sa place
+            GameState.LibererMain();
             Debug.Log("Pot arrosé.");
-        }
-        else if (item == "")
-        {
-            Debug.Log("Mains vides. Prends d'abord de la terre ou l'arrosoir.");
-        }
-        else
-        {
-            Debug.Log("Cet item (" + item + ") ne va pas dans le pot.");
         }
     }
 }
