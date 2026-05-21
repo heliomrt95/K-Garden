@@ -1,16 +1,15 @@
 // Player.cs
 // -----------------------------------------------------------------------------
-// Contrôle du joueur en vue 1ère personne (FPS).
+// Contrôle FPS du joueur + interaction au clic gauche.
 //
 // À mettre sur : un GameObject vide "Player" qui contient la Main Camera en enfant.
-// Composants Unity requis sur ce GameObject : CharacterController (collisions).
+// Composant requis : CharacterController.
 //
 // Commandes :
 //   - W/A/S/D ou flèches : se déplacer
-//   - souris : regarder autour
-//   - clic gauche : interagir avec ce qui est en face
-//       → arrosoir : on le prend
-//       → plante   : on essaie de l'arroser
+//   - souris             : regarder autour
+//   - clic gauche        : interagir avec ce qui est en face
+//   - touche R           : reposer l'objet tenu (le retourner à sa place)
 // -----------------------------------------------------------------------------
 
 using UnityEngine;
@@ -18,21 +17,18 @@ using UnityEngine;
 [RequireComponent(typeof(CharacterController))]
 public class Player : MonoBehaviour
 {
-    // --- Réglages visibles dans l'Inspector ---
-    public float vitesse = 4f;             // vitesse de déplacement (m/s)
-    public float sensibiliteSouris = 2f;   // sensibilité de la rotation à la souris
-    public float porteeInteraction = 3f;   // distance max pour cliquer sur un objet (m)
+    public float vitesse = 4f;
+    public float sensibiliteSouris = 2f;
+    public float porteeInteraction = 3f;
 
-    // --- Variables internes ---
     private CharacterController controleur;
     private Camera cam;
-    private float rotationVerticale = 0f;  // angle haut/bas de la caméra
+    private float rotationVerticale = 0f;
 
     void Start()
     {
         controleur = GetComponent<CharacterController>();
         cam = GetComponentInChildren<Camera>();
-        // Verrouille le curseur au centre de l'écran (FPS classique)
         Cursor.lockState = CursorLockMode.Locked;
         Cursor.visible = false;
     }
@@ -42,6 +38,8 @@ public class Player : MonoBehaviour
         Deplacement();
         Rotation();
         if (Input.GetMouseButtonDown(0)) Interagir();
+        // Touche R = repose l'objet (utile si on a pris quelque chose par erreur)
+        if (Input.GetKeyDown(KeyCode.R)) GameState.LibererMain();
     }
 
     void Deplacement()
@@ -49,7 +47,7 @@ public class Player : MonoBehaviour
         float h = Input.GetAxis("Horizontal");
         float v = Input.GetAxis("Vertical");
         Vector3 direction = transform.right * h + transform.forward * v;
-        direction.y = -9.81f * Time.deltaTime; // gravité simple
+        direction.y = -9.81f * Time.deltaTime;
         controleur.Move(direction * vitesse * Time.deltaTime);
     }
 
@@ -57,9 +55,7 @@ public class Player : MonoBehaviour
     {
         float mouseX = Input.GetAxis("Mouse X") * sensibiliteSouris;
         float mouseY = Input.GetAxis("Mouse Y") * sensibiliteSouris;
-
         transform.Rotate(0, mouseX, 0);
-
         rotationVerticale -= mouseY;
         rotationVerticale = Mathf.Clamp(rotationVerticale, -80f, 80f);
         cam.transform.localEulerAngles = new Vector3(rotationVerticale, 0, 0);
@@ -67,30 +63,36 @@ public class Player : MonoBehaviour
 
     void Interagir()
     {
-        // Lance un rayon invisible depuis le centre de l'écran vers l'avant
         Vector3 centreEcran = new Vector3(Screen.width / 2f, Screen.height / 2f, 0);
         Ray rayon = cam.ScreenPointToRay(centreEcran);
 
         if (Physics.Raycast(rayon, out RaycastHit hit, porteeInteraction))
         {
-            // Si l'objet touché est l'arrosoir, on le prend.
+            // On essaie chaque type d'interaction dans l'ordre.
             // GetComponentInParent regarde aussi les parents : pratique car
-            // l'arrosoir est un Empty avec des Cubes/Cylindres enfants.
-            Arrosoir arrosoir = hit.collider.GetComponentInParent<Arrosoir>();
-            if (arrosoir != null) { arrosoir.Prendre(); return; }
+            // les objets sont souvent composés (parent + plusieurs enfants visuels).
 
-            // Sinon si c'est une plante, on essaie de l'arroser.
+            Pickup pickup = hit.collider.GetComponentInParent<Pickup>();
+            if (pickup != null) { pickup.Prendre(); return; }
+
+            Source source = hit.collider.GetComponentInParent<Source>();
+            if (source != null) { source.Prendre(); return; }
+
+            Pot pot = hit.collider.GetComponentInParent<Pot>();
+            if (pot != null) { pot.Utiliser(); return; }
+
             Plant plante = hit.collider.GetComponent<Plant>();
             if (plante != null) plante.EssayerArroser();
         }
     }
 
-    // Affichage simple à l'écran (sans Canvas, pratique pour un MVP)
+    // Petit HUD sans Canvas : montre ce qu'on tient en main + un viseur
     void OnGUI()
     {
-        string texte = GameState.arrosoirEnMain ? "Arrosoir en main" : "Mains vides";
+        string texte = GameState.itemEnMain == ""
+            ? "Mains vides"
+            : "En main : " + GameState.itemEnMain + "  (R = reposer)";
         GUI.Label(new Rect(10, 10, 400, 25), texte);
-        // Petit "+" au centre de l'écran = viseur
         GUI.Label(new Rect(Screen.width / 2f - 5, Screen.height / 2f - 10, 20, 20), "+");
     }
 }

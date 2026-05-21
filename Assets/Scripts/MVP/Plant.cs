@@ -1,26 +1,19 @@
 // Plant.cs
 // -----------------------------------------------------------------------------
 // À mettre sur chaque plante de la scène.
-// La plante a 2 états :
+// 2 états :
 //   - Sec     (marron) : a besoin d'eau
 //   - Arrosee (vert)   : ok
 //
-// Quand le joueur clique dessus AVEC l'arrosoir en main, elle est arrosée.
-// Sinon : message dans la console.
-//
-// Composants Unity requis :
-//   - un Renderer (le mesh visible — cube, sphère ou modèle 3D)
-//   - un Collider (Box ou autre) pour que le rayon du joueur la détecte
+// Quand le joueur clique dessus AVEC l'arrosoir (item "eau") en main → arrosée.
+// L'arrosoir retourne automatiquement à sa place après usage.
 // -----------------------------------------------------------------------------
 
 using UnityEngine;
 
 public class Plant : MonoBehaviour
 {
-    // Les 2 états possibles. "enum" = liste de valeurs nommées.
     public enum Etat { Sec, Arrosee }
-
-    // État de départ — réglable dans l'Inspector
     public Etat etatActuel = Etat.Sec;
 
     private Renderer rend;
@@ -31,34 +24,28 @@ public class Plant : MonoBehaviour
         MettreAJourCouleur();
     }
 
-    // Appelé par Player.cs quand on clique sur cette plante.
     public void EssayerArroser()
     {
-        // Cas 1 : pas d'arrosoir en main → message d'aide
-        if (!GameState.arrosoirEnMain)
+        if (GameState.itemEnMain != "eau")
         {
-            Debug.Log("Tu n'as pas d'arrosoir en main. Prends-le d'abord.");
+            Debug.Log("Il te faut l'arrosoir (eau) en main.");
             return;
         }
-
-        // Cas 2 : plante déjà arrosée → rien à faire
         if (etatActuel == Etat.Arrosee)
         {
             Debug.Log("La plante est déjà arrosée.");
             return;
         }
-
-        // Cas 3 : plante sèche + arrosoir en main → on arrose
         etatActuel = Etat.Arrosee;
         MettreAJourCouleur();
+        GameState.LibererMain(); // arrosoir retourne sur la table
         Debug.Log("Plante arrosée !");
     }
 
-    // Change la couleur du Renderer selon l'état actuel.
     void MettreAJourCouleur()
     {
         if (rend == null) return;
-        if (etatActuel == Etat.Sec)     rend.material.color = new Color(0.6f, 0.4f, 0.2f); // marron
-        if (etatActuel == Etat.Arrosee) rend.material.color = new Color(0.3f, 0.8f, 0.3f); // vert
+        if (etatActuel == Etat.Sec)     rend.material.color = new Color(0.6f, 0.4f, 0.2f);
+        if (etatActuel == Etat.Arrosee) rend.material.color = new Color(0.3f, 0.8f, 0.3f);
     }
 }

@@ -39,15 +39,20 @@ public static class BacATerreBuilder
         CreerPiece("Bord_Droit",   new Vector3( 0.5f,  0.20f,  0f),    new Vector3(0.05f, 0.4f, 1f),    wood, bac.transform);
 
         // 4) Crée la terre à l'intérieur (un cube plat un peu plus petit que le bac)
-        CreerPiece("Terre", new Vector3(0f, 0.15f, 0f), new Vector3(0.95f, 0.3f, 0.95f), earth, bac.transform);
+        GameObject terre = CreerPiece("Terre", new Vector3(0f, 0.15f, 0f), new Vector3(0.95f, 0.3f, 0.95f), earth, bac.transform);
 
-        // 5) Sélectionne le bac dans la Hierarchy pour que l'utilisateur le voie
+        // 5) Ajoute Source sur la terre : cliquer dessus donne un cube de terre dans la main
+        Source source = terre.AddComponent<Source>();
+        source.typeItem = "terre";
+        source.couleurEnMain = new Color(0.28f, 0.18f, 0.10f);
+
+        // 6) Sélectionne le bac dans la Hierarchy
         Selection.activeGameObject = bac;
-        Debug.Log("✅ BacATerre créé à l'origine (0,0,0). Déplace-le où tu veux dans la scène.");
+        Debug.Log("✅ BacATerre créé à l'origine (0,0,0). La terre est une Source (cliquer = prendre une motte).");
     }
 
     // ── Crée un Cube enfant avec position/scale/matériau donnés ─────────────────
-    static void CreerPiece(string nom, Vector3 pos, Vector3 scale, Material mat, Transform parent)
+    static GameObject CreerPiece(string nom, Vector3 pos, Vector3 scale, Material mat, Transform parent)
     {
         GameObject piece = GameObject.CreatePrimitive(PrimitiveType.Cube);
         piece.name = nom;
@@ -55,6 +60,7 @@ public static class BacATerreBuilder
         piece.transform.localPosition = pos;
         piece.transform.localScale = scale;
         piece.GetComponent<Renderer>().sharedMaterial = mat;
+        return piece;
     }
 
     // ── Charge un matériau existant, ou en crée un nouveau s'il n'existe pas ──

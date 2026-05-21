@@ -73,8 +73,20 @@ public static class ArrosoirBuilder
             rot:   Quaternion.identity,
             mat:   metal, parent: arrosoir.transform);
 
+        // Auto-ajoute le script Pickup (type="eau") pour que l'arrosoir soit ramassable
+        Pickup pickup = arrosoir.AddComponent<Pickup>();
+        pickup.typeItem = "eau";
+        pickup.positionEnMain = new Vector3(0.35f, -0.25f, 0.55f);
+        pickup.rotationEnMain = new Vector3(15f, -20f, 0f);
+
+        // Ajoute un BoxCollider sur le parent pour rendre l'arrosoir cliquable
+        // (les enfants ont déjà leurs propres colliders, mais ce collider global facilite le clic)
+        BoxCollider bc = arrosoir.AddComponent<BoxCollider>();
+        bc.center = new Vector3(0.1f, 0.35f, 0f);
+        bc.size = new Vector3(0.7f, 0.7f, 0.4f);
+
         Selection.activeGameObject = arrosoir;
-        Debug.Log("✅ Arrosoir créé à l'origine (0,0,0). Déplace-le sur la table.");
+        Debug.Log("✅ Arrosoir créé à l'origine (0,0,0) — ramassable (type=eau). Déplace-le sur la table.");
     }
 
     // ── Crée une primitive enfant avec ses paramètres ──────────────────────────
