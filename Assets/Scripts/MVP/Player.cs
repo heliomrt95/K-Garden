@@ -68,6 +68,9 @@ public class Player : MonoBehaviour
         cam.transform.localEulerAngles = new Vector3(rotationVerticale, 0, 0);
     }
 
+    // ── Cible courante (pour le HUD "Visé : XXX") ────────────────────────────
+    private string viseDebug = "";
+
     // ── Boucle d'interaction ─────────────────────────────────────────────────
     void GererInteraction()
     {
@@ -75,6 +78,19 @@ public class Player : MonoBehaviour
         Ray rayon = cam.ScreenPointToRay(centreEcran);
         Physics.Raycast(rayon, out RaycastHit hit, porteeInteraction);
         GameObject cible = hit.collider != null ? hit.collider.gameObject : null;
+
+        // Met à jour le HUD "Visé : XXX" pour aider à viser les pots
+        if (cible == null) viseDebug = "";
+        else
+        {
+            string root = cible.transform.root.name;
+            string composants = "";
+            if (cible.GetComponentInParent<Pickup>() != null) composants += " [Pickup]";
+            if (cible.GetComponentInParent<Source>() != null) composants += " [Source]";
+            if (cible.GetComponentInParent<Pot>()    != null) composants += " [Pot]";
+            if (cible.GetComponent<Plant>()           != null) composants += " [Plant]";
+            viseDebug = "Visé : " + root + composants;
+        }
 
         // 1) Clic appuyé pour la première fois cette frame
         if (Input.GetMouseButtonDown(0))
@@ -178,6 +194,12 @@ public class Player : MonoBehaviour
 
         // Viseur
         GUI.Label(new Rect(Screen.width / 2f - 5, Screen.height / 2f - 10, 20, 20), "+");
+
+        // Debug : ce que le viseur a sous lui
+        if (!string.IsNullOrEmpty(viseDebug))
+            GUI.Label(new Rect(Screen.width / 2f - 200, Screen.height / 2f + 10, 400, 20),
+                      viseDebug,
+                      new GUIStyle(GUI.skin.label) { alignment = TextAnchor.MiddleCenter });
 
         // Barre de progression (si action en cours)
         if (cibleActuelle != null && dureeRequise > 0f)

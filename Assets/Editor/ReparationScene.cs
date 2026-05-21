@@ -91,7 +91,27 @@ public static class ReparationScene
             // 1) Retire Plant s'il y en a
             foreach (var p in go.GetComponents<Plant>()) Object.DestroyImmediate(p);
 
-            // 2) Sélectionne pour que ComposantsMenu.MarquerPot agisse dessus
+            // 2) Retire tous les Colliders existants (le MeshCollider du FBX
+            //    peut être troué → le raycast du joueur passe au travers du pot).
+            foreach (var c in go.GetComponentsInChildren<Collider>())
+                Object.DestroyImmediate(c);
+
+            // 3) Force un BoxCollider neuf sur le parent, calculé sur les bounds
+            Renderer[] rs = go.GetComponentsInChildren<Renderer>();
+            if (rs.Length > 0)
+            {
+                Bounds bw = rs[0].bounds;
+                for (int i = 1; i < rs.Length; i++) bw.Encapsulate(rs[i].bounds);
+                Vector3 ls = go.transform.lossyScale;
+                BoxCollider bc = go.AddComponent<BoxCollider>();
+                bc.center = go.transform.InverseTransformPoint(bw.center);
+                bc.size = new Vector3(
+                    Mathf.Abs(bw.size.x / Mathf.Max(0.001f, ls.x)),
+                    Mathf.Abs(bw.size.y / Mathf.Max(0.001f, ls.y)),
+                    Mathf.Abs(bw.size.z / Mathf.Max(0.001f, ls.z)));
+            }
+
+            // 4) Sélectionne pour que ComposantsMenu.MarquerPot agisse dessus
             Selection.activeGameObject = go;
             ComposantsMenu.MarquerPot();
 

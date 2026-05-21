@@ -41,6 +41,21 @@ public static class SolHerbeBuilder
             return;
         }
 
+        // 1b) Force les bons settings d'import pour éviter les bords noirs :
+        //     - wrap Repeat (sinon Unity affiche les pixels du bord = bordure sombre)
+        //     - filter Trilinear (lissage entre mipmaps)
+        //     - aniso 8 (texture nette à angle rasant)
+        TextureImporter ti = AssetImporter.GetAtPath(texPath) as TextureImporter;
+        if (ti != null)
+        {
+            bool change = false;
+            if (ti.wrapMode != TextureWrapMode.Repeat) { ti.wrapMode = TextureWrapMode.Repeat; change = true; }
+            if (ti.filterMode != FilterMode.Trilinear) { ti.filterMode = FilterMode.Trilinear; change = true; }
+            if (ti.anisoLevel < 8) { ti.anisoLevel = 8; change = true; }
+            if (!ti.mipmapEnabled) { ti.mipmapEnabled = true; change = true; }
+            if (change) ti.SaveAndReimport();
+        }
+
         // 2) Crée ou met à jour le matériau GrassSol.mat
         const string dossierMat = "Assets/Resources/Materials";
         const string cheminMat  = dossierMat + "/GrassSol.mat";
@@ -76,13 +91,13 @@ public static class SolHerbeBuilder
             rend.sharedMaterial = mat;
             appliques++;
 
-            // 5) Calcule un tiling raisonnable : ~2m par tile (pour un Plane de
-            //    10×10 unités avec scale (sx, _, sz), on veut sx/2 × sz/2 tiles).
+            // 5) Tiling : ~1 tile par 5m monde — moins de répétitions = moins
+            //    de coutures visibles entre les tiles d'herbe.
             Vector3 ls = go.transform.lossyScale;
-            // Plane primitive Unity = 10×10 unités à scale 1
-            float taillesXMonde = 10f * ls.x;
+            float taillesXMonde = 10f * ls.x; // Plane primitive = 10×10 unités à scale 1
             float taillesZMonde = 10f * ls.z;
-            mat.mainTextureScale = new Vector2(taillesXMonde / 2f, taillesZMonde / 2f);
+            mat.mainTextureScale = new Vector2(taillesXMonde / 5f, taillesZMonde / 5f);
+            mat.mainTextureOffset = Vector2.zero;
 
             Debug.Log("[Herbe] Texture appliquée sur '" + go.name + "' (tiling " +
                       mat.mainTextureScale.x + "×" + mat.mainTextureScale.y + ").");

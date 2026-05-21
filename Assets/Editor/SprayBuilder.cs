@@ -71,7 +71,7 @@ public static class SprayBuilder
         Pickup pickup = spray.AddComponent<Pickup>();
         pickup.typeItem = "spray";
         pickup.positionEnMain = new Vector3(0.30f, -0.22f, 0.50f);
-        pickup.rotationEnMain = new Vector3(0f, 90f, 0f);
+        pickup.rotationEnMain = new Vector3(0f, 180f, 0f);
 
         // Collider global sur le parent pour faciliter le clic
         BoxCollider bc = spray.AddComponent<BoxCollider>();
