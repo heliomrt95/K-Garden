@@ -212,7 +212,7 @@ public class Pot : MonoBehaviour
             aEau = true;
             tempsDepuisArrosage = 0f;
             if (visuelEau != null) visuelEau.SetActive(true);
-            GameState.LibererMain();
+            // L'arrosoir reste en main : le joueur le repose avec R quand il veut
             Debug.Log(name + " : arrosé — la plante commence à pousser.");
         }
     }
@@ -306,8 +306,7 @@ public class Pot : MonoBehaviour
         tempsDepuisDernierSpawn = 0f;
         vie = vieMax;
 
-        // 4) La pelle reste dans la main → on libère pour la retourner à sa place
-        GameState.LibererMain();
+        // 4) La pelle reste en main : le joueur la repose avec R quand il veut
         Debug.Log(name + " : pot vidé. Tu peux replanter.");
     }
 

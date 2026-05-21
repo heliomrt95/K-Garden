@@ -71,6 +71,44 @@ public static class ReparationScene
             resume + "\nLance le jeu pour vérifier que le sol reste vert.", "OK");
     }
 
+    // ── Corrige la rotation/position en main des outils déjà dans la scène ──
+    [MenuItem("Tools/Corriger Rotations Outils en Main")]
+    public static void CorrigerRotationsOutils()
+    {
+        int corriges = 0;
+        GameObject[] tous = Resources.FindObjectsOfTypeAll<GameObject>();
+        foreach (var go in tous)
+        {
+            if (!go.scene.IsValid()) continue;
+            Pickup p = go.GetComponent<Pickup>();
+            if (p == null) continue;
+
+            switch (p.typeItem)
+            {
+                case "eau":
+                    p.positionEnMain = new Vector3(0.35f, -0.25f, 0.55f);
+                    p.rotationEnMain = new Vector3(15f, -45f, 0f);
+                    corriges++;
+                    break;
+                case "spray":
+                    p.positionEnMain = new Vector3(0.30f, -0.22f, 0.50f);
+                    p.rotationEnMain = new Vector3(0f, 180f, 0f);
+                    corriges++;
+                    break;
+                case "pelle":
+                    p.positionEnMain = new Vector3(0.40f, -0.30f, 0.55f);
+                    p.rotationEnMain = new Vector3(30f, -20f, 0f);
+                    corriges++;
+                    break;
+            }
+            EditorUtility.SetDirty(p);
+        }
+        if (corriges > 0)
+            UnityEditor.SceneManagement.EditorSceneManager.MarkAllScenesDirty();
+        EditorUtility.DisplayDialog("Rotations Outils",
+            corriges + " outil(s) corrigé(s). Lance Play pour vérifier.", "OK");
+    }
+
     // ── Diagnostic + reconfiguration FORCÉE des 3 pots ───────────────────────
     // À utiliser si "mettre la terre dans le pot" ne fonctionne pas. Force :
     //   - Suppression de tout Plant attaché

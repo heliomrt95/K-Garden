@@ -74,8 +74,8 @@ public static class ShovelBuilder
         // 5) Pickup (typeItem = "pelle")
         Pickup pickup = pelle.AddComponent<Pickup>();
         pickup.typeItem = "pelle";
-        pickup.positionEnMain = new Vector3(0.35f, -0.30f, 0.55f);
-        pickup.rotationEnMain = new Vector3(20f, -30f, 60f);
+        pickup.positionEnMain = new Vector3(0.40f, -0.30f, 0.55f);
+        pickup.rotationEnMain = new Vector3(30f, -20f, 0f);
 
         // 6) Collider global pour le clic
         BoxCollider bc = pelle.AddComponent<BoxCollider>();

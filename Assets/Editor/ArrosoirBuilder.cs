@@ -93,7 +93,7 @@ public static class ArrosoirBuilder
         Pickup pickup = arrosoir.AddComponent<Pickup>();
         pickup.typeItem = "eau";
         pickup.positionEnMain = new Vector3(0.35f, -0.25f, 0.55f);
-        pickup.rotationEnMain = new Vector3(15f, -20f, 0f);
+        pickup.rotationEnMain = new Vector3(15f, -45f, 0f);
 
         // 7) Collider global pour faciliter le clic
         BoxCollider bc = arrosoir.AddComponent<BoxCollider>();
