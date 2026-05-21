@@ -1,16 +1,13 @@
 // GraineBuilder.cs
 // -----------------------------------------------------------------------------
-// Menu "Tools > Créer Sachet de Graines" : construit dans la scène un petit
-// sachet/pot de graines à poser sur la table. Cliquer dessus = prendre une
-// graine dans la main (Source typeItem="graine").
+// 3 menus pour créer des sachets de graines, un par niveau de progression :
+//   - Tools > Sachets de Graines > Niveau 1  (typeItem = "graine_1")
+//   - Tools > Sachets de Graines > Niveau 2  (typeItem = "graine_2")
+//   - Tools > Sachets de Graines > Niveau 3  (typeItem = "graine_3")
 //
-// Structure créée :
-//   SachetGraines (Empty)
-//   ├── Pot      (Cylindre marron — le récipient)
-//   └── Tas      (Sphère écrasée beige/brun — les graines visibles)
-//
-// Le script Source est sur le parent (cliquer sur n'importe quelle partie
-// récupère une graine).
+// Chaque sachet est posé à l'origine sous le nom SachetGraines_N1/N2/N3, avec
+// une couleur différente. Au clic en jeu, le joueur prend une graine de ce
+// niveau qu'il peut planter dans un pot.
 // -----------------------------------------------------------------------------
 
 using UnityEditor;
@@ -19,28 +16,43 @@ using System.IO;
 
 public static class GraineBuilder
 {
-    [MenuItem("Tools/Créer Sachet de Graines")]
-    public static void CreerSachet()
+    [MenuItem("Tools/Sachets de Graines/Niveau 1")]
+    public static void Creer1() { CreerSachet(1); }
+
+    [MenuItem("Tools/Sachets de Graines/Niveau 2")]
+    public static void Creer2() { CreerSachet(2); }
+
+    [MenuItem("Tools/Sachets de Graines/Niveau 3")]
+    public static void Creer3() { CreerSachet(3); }
+
+    static void CreerSachet(int niveau)
     {
+        // Couleurs selon le niveau (récipient + tas de graines)
+        Color cPot, cGraines;
+        switch (niveau)
+        {
+            case 2: cPot = new Color(0.40f, 0.30f, 0.55f); cGraines = new Color(0.60f, 0.45f, 0.85f); break;
+            case 3: cPot = new Color(0.20f, 0.45f, 0.55f); cGraines = new Color(0.30f, 0.85f, 0.75f); break;
+            default: cPot = new Color(0.55f, 0.35f, 0.20f); cGraines = new Color(0.65f, 0.48f, 0.22f); break;
+        }
+
         // 1) Matériaux
-        Material matPot = ChargerOuCreerMateriau("BoisClair",
-            new Color(0.55f, 0.35f, 0.20f), metallique: 0.05f, brillance: 0.30f);
-        Material matGraines = ChargerOuCreerMateriau("Graines",
-            new Color(0.65f, 0.48f, 0.22f), metallique: 0f, brillance: 0.15f);
+        Material matPot = ChargerOuCreerMateriau("SachetPot_N" + niveau, cPot, 0.05f, 0.30f);
+        Material matGraines = ChargerOuCreerMateriau("SachetGraines_N" + niveau, cGraines, 0f, 0.15f);
 
         // 2) Parent vide
-        GameObject sachet = new GameObject("SachetGraines");
+        GameObject sachet = new GameObject("SachetGraines_N" + niveau);
         sachet.transform.position = Vector3.zero;
 
-        // 3) Récipient : petit cylindre marron
+        // 3) Récipient : petit cylindre
         GameObject pot = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
         pot.name = "Pot";
         pot.transform.parent = sachet.transform;
         pot.transform.localPosition = new Vector3(0f, 0.05f, 0f);
-        pot.transform.localScale = new Vector3(0.14f, 0.05f, 0.14f); // 14cm Ø, 10cm haut
+        pot.transform.localScale = new Vector3(0.14f, 0.05f, 0.14f);
         pot.GetComponent<Renderer>().sharedMaterial = matPot;
 
-        // 4) Tas de graines : sphère écrasée beige
+        // 4) Tas de graines : sphère écrasée
         GameObject tas = GameObject.CreatePrimitive(PrimitiveType.Sphere);
         tas.name = "Tas";
         tas.transform.parent = sachet.transform;
@@ -49,20 +61,20 @@ public static class GraineBuilder
         tas.GetComponent<Renderer>().sharedMaterial = matGraines;
         Object.DestroyImmediate(tas.GetComponent<Collider>());
 
-        // 5) Script Source : cliquer = prendre une graine
+        // 5) Source : clic = prendre une graine de ce niveau
         Source source = sachet.AddComponent<Source>();
-        source.typeItem = "graine";
-        source.couleurEnMain = new Color(0.65f, 0.48f, 0.22f);
-        source.tailleEnMain = 0.06f; // petite graine en main
+        source.typeItem = "graine_" + niveau;
+        source.couleurEnMain = cGraines;
+        source.tailleEnMain = 0.06f;
 
-        // 6) Collider global sur le parent pour faciliter le clic
+        // 6) Collider global
         BoxCollider bc = sachet.AddComponent<BoxCollider>();
         bc.center = new Vector3(0f, 0.07f, 0f);
         bc.size = new Vector3(0.24f, 0.16f, 0.24f);
 
         Selection.activeGameObject = sachet;
-        Debug.Log("✅ SachetGraines créé à l'origine. Pose-le sur la table. " +
-                  "Cliquer dessus = prendre une graine.");
+        Debug.Log("✅ SachetGraines_N" + niveau + " créé (typeItem=graine_" + niveau +
+                  "). À glisser dans SeedUnlockManager pour les niveaux 2 et 3.");
     }
 
     static Material ChargerOuCreerMateriau(string nom, Color couleur, float metallique, float brillance)

@@ -152,16 +152,17 @@ public class Pot : MonoBehaviour
             GameState.LibererMain();
             Debug.Log(name + " : rempli de terre.");
         }
-        else if (item == "graine" && aTerre && !aGraine)
+        else if (EstUneGraine(item) && aTerre && !aGraine)
         {
             aGraine = true;
+            niveauPlante = NiveauDeGraine(item);
             if (visuelGraine != null)
             {
                 visuelGraine.SetActive(true);
                 scaleGraineInit = visuelGraine.transform.localScale;
             }
             GameState.LibererMain();
-            Debug.Log(name + " : graine plantée.");
+            Debug.Log(name + " : graine N" + niveauPlante + " plantée.");
         }
         else if (item == "eau" && aGraine && !aEau)
         {
