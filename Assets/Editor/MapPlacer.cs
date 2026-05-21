@@ -54,9 +54,27 @@ public static class MapPlacer
         //    Un Terrain Unity a son pivot au coin (0,0,0) — il faut donc décaler
         //    de -size/2 pour que son centre tombe sur la serre.
         Vector3 size = td.size;
+
+        // Base de la serre = Y le plus bas de ses renderers (sinon transform.position.y)
+        float baseSerreY = centreSerre.y;
+        if (serre != null)
+        {
+            Renderer[] rs = serre.GetComponentsInChildren<Renderer>();
+            if (rs.Length > 0)
+            {
+                Bounds b = rs[0].bounds;
+                for (int i = 1; i < rs.Length; i++) b.Encapsulate(rs[i].bounds);
+                baseSerreY = b.min.y;
+            }
+        }
+
+        // Hauteur du heightmap à l'emplacement de la serre (centre du terrain → 0.5, 0.5).
+        // On positionne le terrain en Y pour que sa surface sous la serre coïncide
+        // avec la base de la serre (-1 cm pour éviter le z-fighting).
+        float hauteurCentreTerrain = td.GetInterpolatedHeight(0.5f, 0.5f);
         Vector3 origine = new Vector3(
             centreSerre.x - size.x * 0.5f,
-            centreSerre.y - 0.05f,  // 5cm sous la serre pour éviter le z-fighting
+            baseSerreY - hauteurCentreTerrain - 0.01f,
             centreSerre.z - size.z * 0.5f);
         mapGO.transform.position = origine;
 

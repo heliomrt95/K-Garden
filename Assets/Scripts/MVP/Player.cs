@@ -6,11 +6,13 @@
 // Composant requis : CharacterController.
 //
 // Interactions :
-//   - Clic GAUCHE rapide        : ramasser un Pickup ou prendre dans une Source
-//   - Clic GAUCHE MAINTENU      : agir sur un Pot ou une Plante avec l'item en main
-//                                 → barre de progression au centre de l'écran
-//                                 → si on relâche ou bouge avant la fin, l'action s'annule
-//   - Touche R                  : reposer l'objet tenu
+//   - Clic GAUCHE rapide    : ramasser un Pickup ou prendre dans une Source
+//   - Clic GAUCHE MAINTENU  : agir sur un Pot avec terre/graine/eau
+//                             → barre verte au centre, se remplit en continu
+//   - Clic GAUCHE SPAMMÉ    : agir sur un Pot avec le spray (anti-nuisibles)
+//                             → barre orange qui monte par clic et redescend toute seule
+//                             → à 100 % : 1 nuisible éliminé, la barre repart de zéro
+//   - Touche R              : reposer l'objet tenu
 // -----------------------------------------------------------------------------
 
 using UnityEngine;
@@ -22,16 +24,28 @@ public class Player : MonoBehaviour
     public float sensibiliteSouris = 2f;
     public float porteeInteraction = 3f;
 
+    [Header("Spray (anti-nuisibles, spam-clic)")]
+    public float gainParClicSpray = 0.16f;     // 16 % par clic → ~7 clics pour 1 nuisible
+    public float baisseSprayParSeconde = 0.45f; // la barre se vide à 45 % / s
+
     private CharacterController controleur;
     private Camera cam;
     private float rotationVerticale = 0f;
 
-    // ── État de l'action progressive en cours ────────────────────────────────
-    private GameObject cibleActuelle;   // Pot ou Plant visé pendant le clic maintenu
-    private string itemAuDebut;         // item en main au démarrage de l'action
-    private float progression;          // temps écoulé en secondes
-    private float dureeRequise;         // durée nécessaire pour valider
-    private string messageInfo;         // info temporaire à afficher sous le viseur
+    // ── Clic maintenu (terre / graine / eau) ─────────────────────────────────
+    private GameObject cibleActuelle;
+    private string itemAuDebut;
+    private float progression;
+    private float dureeRequise;
+    private string messageInfo;
+
+    // ── Spam-clic (spray) ────────────────────────────────────────────────────
+    private Pot cibleSpray;
+    private float progressionSpray; // 0..1
+
+    // ── HUD ──────────────────────────────────────────────────────────────────
+    private string viseDebug = "";
+    private Pot potVise;            // pot actuellement sous le viseur (pour la jauge de vie)
 
     void Start()
     {
@@ -68,9 +82,6 @@ public class Player : MonoBehaviour
         cam.transform.localEulerAngles = new Vector3(rotationVerticale, 0, 0);
     }
 
-    // ── Cible courante (pour le HUD "Visé : XXX") ────────────────────────────
-    private string viseDebug = "";
-
     // ── Boucle d'interaction ─────────────────────────────────────────────────
     void GererInteraction()
     {
@@ -79,7 +90,8 @@ public class Player : MonoBehaviour
         Physics.Raycast(rayon, out RaycastHit hit, porteeInteraction);
         GameObject cible = hit.collider != null ? hit.collider.gameObject : null;
 
-        // Met à jour le HUD "Visé : XXX" pour aider à viser les pots
+        // HUD "Visé : XXX [Composants]" + mémorise le pot pour la jauge de vie
+        potVise = null;
         if (cible == null) viseDebug = "";
         else
         {
@@ -87,59 +99,76 @@ public class Player : MonoBehaviour
             string composants = "";
             if (cible.GetComponentInParent<Pickup>() != null) composants += " [Pickup]";
             if (cible.GetComponentInParent<Source>() != null) composants += " [Source]";
-            if (cible.GetComponentInParent<Pot>()    != null) composants += " [Pot]";
+            Pot p = cible.GetComponentInParent<Pot>();
+            if (p != null) { composants += " [Pot]"; potVise = p; }
             viseDebug = "Visé : " + root + composants;
         }
 
-        // 1) Clic appuyé pour la première fois cette frame
+        // ── Spam-clic spray (cas spécial, prioritaire) ───────────────────────
+        if (GameState.itemEnMain == "spray" && potVise != null && potVise.NuisiblesActifs() > 0)
+        {
+            // Tout clic ajoute du progrès, mais ne déclenche pas le clic-maintenu
+            if (Input.GetMouseButtonDown(0))
+            {
+                cibleSpray = potVise;
+                progressionSpray = Mathf.Clamp01(progressionSpray + gainParClicSpray);
+            }
+
+            // La barre se vide doucement entre les clics
+            if (cibleSpray != null)
+                progressionSpray = Mathf.Max(0f, progressionSpray - baisseSprayParSeconde * Time.deltaTime);
+
+            // À 100 % : tue un nuisible, repart de zéro
+            if (progressionSpray >= 1f && cibleSpray != null)
+            {
+                cibleSpray.TuerUnNuisible();
+                progressionSpray = 0f;
+                if (cibleSpray.NuisiblesActifs() == 0) cibleSpray = null;
+            }
+            return; // pas de logique clic-maintenu quand on est en mode spam
+        }
+
+        // Sortie de portée ou changement de cible → reset le spam
+        if (cibleSpray != null && (potVise != cibleSpray || cibleSpray.NuisiblesActifs() == 0))
+            cibleSpray = null;
+
+        // ── Clic appuyé pour la première fois (pickup/source/clic-maintenu) ──
         if (Input.GetMouseButtonDown(0))
         {
             if (cible == null) return;
 
-            // Sources et Pickups : action instantanée, pas de clic maintenu
             Pickup pickup = cible.GetComponentInParent<Pickup>();
             if (pickup != null) { pickup.Prendre(); return; }
 
             Source source = cible.GetComponentInParent<Source>();
             if (source != null) { source.Prendre(); return; }
 
-            // Pot : action progressive
             Pot pot = cible.GetComponentInParent<Pot>();
             if (pot != null)
             {
                 float duree = pot.DureeAction(GameState.itemEnMain);
                 if (duree > 0f)
-                {
                     DemarrerAction(pot.gameObject, GameState.itemEnMain, duree);
-                }
                 else
-                {
                     messageInfo = pot.RaisonRefus(GameState.itemEnMain);
-                }
                 return;
             }
         }
 
-        // 2) Bouton maintenu : on continue à incrémenter la progression
+        // ── Bouton maintenu : progression ────────────────────────────────────
         if (Input.GetMouseButton(0) && cibleActuelle != null)
         {
-            // Cible perdue (sortie de portée, autre objet sous le viseur) ?
             if (cible == null ||
                 (cible != cibleActuelle && cible.transform.root != cibleActuelle.transform.root))
             { AnnulerAction(); return; }
 
-            // Item en main a changé ?
             if (GameState.itemEnMain != itemAuDebut) { AnnulerAction(); return; }
 
             progression += Time.deltaTime;
             if (progression >= dureeRequise) ValiderAction();
         }
 
-        // 3) Bouton relâché : on annule si une action n'était pas terminée
-        if (Input.GetMouseButtonUp(0) && cibleActuelle != null)
-        {
-            AnnulerAction();
-        }
+        if (Input.GetMouseButtonUp(0) && cibleActuelle != null) AnnulerAction();
     }
 
     void DemarrerAction(GameObject cible, string item, float duree)
@@ -154,10 +183,8 @@ public class Player : MonoBehaviour
     void ValiderAction()
     {
         if (cibleActuelle == null) return;
-
         Pot pot = cibleActuelle.GetComponent<Pot>();
         if (pot != null) pot.ValiderAction(itemAuDebut);
-
         ResetAction();
     }
 
@@ -171,10 +198,10 @@ public class Player : MonoBehaviour
         dureeRequise = 0f;
     }
 
-    // ── HUD minimal : item en main + viseur + barre de progression ────────────
+    // ── HUD ──────────────────────────────────────────────────────────────────
     void OnGUI()
     {
-        // Item en main (coin haut-gauche)
+        // Item en main
         string texte = GameState.itemEnMain == ""
             ? "Mains vides"
             : "En main : " + GameState.itemEnMain + "  (R = reposer)";
@@ -183,30 +210,44 @@ public class Player : MonoBehaviour
         // Viseur
         GUI.Label(new Rect(Screen.width / 2f - 5, Screen.height / 2f - 10, 20, 20), "+");
 
-        // Debug : ce que le viseur a sous lui
+        // Texte "Visé : ..."
         if (!string.IsNullOrEmpty(viseDebug))
             GUI.Label(new Rect(Screen.width / 2f - 200, Screen.height / 2f + 10, 400, 20),
                       viseDebug,
                       new GUIStyle(GUI.skin.label) { alignment = TextAnchor.MiddleCenter });
 
-        // Barre de progression (si action en cours)
-        if (cibleActuelle != null && dureeRequise > 0f)
+        // Jauge de vie + nuisibles du pot visé
+        if (potVise != null)
         {
-            float ratio = Mathf.Clamp01(progression / dureeRequise);
-            float w = 200f, h = 16f;
+            float w = 200f, h = 10f;
             float x = (Screen.width - w) * 0.5f;
-            float y = Screen.height * 0.5f + 30f;
+            float y = Screen.height * 0.5f - 50f;
+            float ratio = Mathf.Clamp01(potVise.vie / potVise.vieMax);
 
-            // Fond gris
-            GUI.color = new Color(0f, 0f, 0f, 0.5f);
-            GUI.DrawTexture(new Rect(x - 2, y - 2, w + 4, h + 4), Texture2D.whiteTexture);
-            GUI.color = new Color(0.15f, 0.15f, 0.15f, 0.85f);
+            GUI.color = new Color(0.10f, 0.10f, 0.10f, 0.85f);
             GUI.DrawTexture(new Rect(x, y, w, h), Texture2D.whiteTexture);
-            // Remplissage vert
-            GUI.color = new Color(0.35f, 0.85f, 0.40f, 1f);
+            Color cVie = potVise.morte ? Color.gray
+                       : ratio > 0.5f  ? new Color(0.35f, 0.85f, 0.40f)
+                       : ratio > 0.25f ? new Color(0.95f, 0.80f, 0.20f)
+                       :                 new Color(0.95f, 0.25f, 0.20f);
+            GUI.color = cVie;
             GUI.DrawTexture(new Rect(x, y, w * ratio, h), Texture2D.whiteTexture);
             GUI.color = Color.white;
+
+            string info = "Vie " + Mathf.RoundToInt(potVise.vie) + "/" + Mathf.RoundToInt(potVise.vieMax);
+            if (potVise.NuisiblesActifs() > 0) info += "  •  Nuisibles : " + potVise.NuisiblesActifs();
+            if (potVise.morte) info = "PLANTE MORTE";
+            GUI.Label(new Rect(x, y - 18, w, 16), info,
+                      new GUIStyle(GUI.skin.label) { alignment = TextAnchor.MiddleCenter });
         }
+
+        // Barre verte : clic maintenu (terre/graine/eau)
+        if (cibleActuelle != null && dureeRequise > 0f)
+            DessinerBarre(progression / dureeRequise, new Color(0.35f, 0.85f, 0.40f));
+
+        // Barre orange : spam-clic (spray)
+        if (cibleSpray != null && progressionSpray > 0f)
+            DessinerBarre(progressionSpray, new Color(0.95f, 0.55f, 0.15f));
 
         // Message d'info temporaire (clic refusé)
         if (!string.IsNullOrEmpty(messageInfo))
@@ -215,5 +256,21 @@ public class Player : MonoBehaviour
             GUI.Label(new Rect((Screen.width - w) * 0.5f, Screen.height * 0.5f + 55f, w, 20f),
                       messageInfo, new GUIStyle(GUI.skin.label) { alignment = TextAnchor.MiddleCenter });
         }
+    }
+
+    void DessinerBarre(float ratio, Color couleur)
+    {
+        ratio = Mathf.Clamp01(ratio);
+        float w = 200f, h = 16f;
+        float x = (Screen.width - w) * 0.5f;
+        float y = Screen.height * 0.5f + 30f;
+
+        GUI.color = new Color(0f, 0f, 0f, 0.5f);
+        GUI.DrawTexture(new Rect(x - 2, y - 2, w + 4, h + 4), Texture2D.whiteTexture);
+        GUI.color = new Color(0.15f, 0.15f, 0.15f, 0.85f);
+        GUI.DrawTexture(new Rect(x, y, w, h), Texture2D.whiteTexture);
+        GUI.color = couleur;
+        GUI.DrawTexture(new Rect(x, y, w * ratio, h), Texture2D.whiteTexture);
+        GUI.color = Color.white;
     }
 }
