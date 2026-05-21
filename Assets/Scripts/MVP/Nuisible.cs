@@ -12,11 +12,15 @@ using UnityEngine;
 public class Nuisible : MonoBehaviour
 {
     public Pot potCible;                  // pot autour duquel on orbite
-    public float rayon = 0.25f;           // distance horizontale au centre du pot
-    public float vitesseAngulaire = 90f;  // degrés par seconde
-    public float amplitudeY = 0.05f;      // bobbing vertical
-    public float vitesseY = 3f;           // fréquence du bobbing
-    public float degatsParSeconde = 5f;   // PV retirés à la plante par seconde
+    public float rayon = 0.22f;           // distance horizontale au centre du pot
+    public float vitesseAngulaire = 120f; // degrés par seconde (insectes nerveux)
+    public float amplitudeY = 0.06f;      // bobbing vertical
+    public float vitesseY = 3.5f;         // fréquence du bobbing
+    public float hauteurCentre = 0.40f;   // hauteur du centre d'orbite au-dessus du pot
+    public float degatsParSeconde = 0.8f; // PV retirés à la plante par seconde
+                                          // Avec 3 nuisibles max : pic à 2.4 PV/s
+                                          // → plante meurt en ~40 s sans intervention,
+                                          //   maturité à 30 s donc gagnable même passif.
 
     private float angle;     // angle courant (degrés)
     private float t;         // temps écoulé (pour le bobbing)
@@ -26,13 +30,11 @@ public class Nuisible : MonoBehaviour
     {
         if (potCible == null) { Destroy(gameObject); return; }
 
-        // Petit décalage initial pour ne pas que tous les nuisibles d'un même
-        // pot orbitent en phase parfaite.
+        // Décalage initial pour casser la synchro entre nuisibles du même groupe
         angle = Random.Range(0f, 360f);
         t = Random.Range(0f, 100f);
 
-        // Centre d'orbite : juste au-dessus du pot (à hauteur de la plante)
-        centre = potCible.transform.position + Vector3.up * 0.35f;
+        centre = potCible.transform.position + Vector3.up * hauteurCentre;
     }
 
     void Update()
@@ -40,7 +42,7 @@ public class Nuisible : MonoBehaviour
         if (potCible == null) { Destroy(gameObject); return; }
 
         // Recalcule le centre au cas où le pot a bougé
-        centre = potCible.transform.position + Vector3.up * 0.35f;
+        centre = potCible.transform.position + Vector3.up * hauteurCentre;
 
         // Orbite horizontale
         angle += vitesseAngulaire * Time.deltaTime;

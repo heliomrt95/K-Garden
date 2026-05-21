@@ -35,10 +35,9 @@ public class Pot : MonoBehaviour
 
     [Header("Vie & nuisibles")]
     public float vieMax = 100f;
-    public float intervalleSpawnNuisible = 8f;   // s entre 2 chances de spawn
-    public float chanceSpawn = 0.55f;             // proba par tick
-    public int nuisiblesMax = 3;
-    public float delaiAvantPremierSpawn = 12f;    // s après arrosage
+    public float delaiAvantAttaque = 12f;   // s après arrosage avant le 1er nuisible
+    public int taillesAttaque = 3;          // nombre TOTAL de nuisibles dans le cycle
+    public float delaiEntreSpawns = 5f;     // s entre chaque apparition (vague progressive)
 
     // ── État interne ─────────────────────────────────────────────────────────
     public float vie { get; private set; }
@@ -51,7 +50,10 @@ public class Pot : MonoBehaviour
 
     private Vector3 scaleGraineInit;     // scale de la graine au moment de planter
     private float tempsDepuisArrosage;
-    private float tempsDepuisDernierSpawn;
+    private bool attaqueDeclenchee = false; // true dès le 1er spawn de cette plante
+    private bool attaqueTerminee = false;   // true quand tous spawnés ET tous morts
+    private int nuisiblesSpawnes = 0;       // total cumulé (jamais ne décroît)
+    private float tempsDepuisDernierSpawn = 0f;
     private readonly List<Nuisible> nuisibles = new List<Nuisible>();
 
     void Start()
@@ -79,19 +81,38 @@ public class Pot : MonoBehaviour
         if (!recompenseDonnee && tempsDepuisArrosage >= dureeCroissance && !morte)
         {
             recompenseDonnee = true;
+            Debug.Log("✅ " + name + " mature (N" + niveauPlante + ") → récompense !");
             PlantReward.DonnerRecompenses(niveauPlante);
         }
 
-        // 2) Spawn aléatoire de nuisibles
-        if (tempsDepuisArrosage > delaiAvantPremierSpawn)
+        // 2) Spawn PROGRESSIF : un nuisible à la fois, espacés dans le temps.
+        //    Quota total = taillesAttaque. Une fois atteint, plus jamais de spawn.
+        if (!attaqueTerminee &&
+            nuisiblesSpawnes < taillesAttaque &&
+            tempsDepuisArrosage >= delaiAvantAttaque)
         {
             tempsDepuisDernierSpawn += Time.deltaTime;
-            if (tempsDepuisDernierSpawn >= intervalleSpawnNuisible &&
-                nuisibles.Count < nuisiblesMax)
+            // Premier spawn dès qu'on atteint le délai d'attaque ; suivants espacés
+            bool peutSpawner = (nuisiblesSpawnes == 0) || (tempsDepuisDernierSpawn >= delaiEntreSpawns);
+            if (peutSpawner)
             {
+                SpawnNuisible();
+                nuisiblesSpawnes++;
                 tempsDepuisDernierSpawn = 0f;
-                if (Random.value < chanceSpawn) SpawnNuisible();
+                if (!attaqueDeclenchee)
+                {
+                    attaqueDeclenchee = true;
+                    Debug.Log(name + " : attaque commencée (" + taillesAttaque + " nuisibles arriveront en vague).");
+                }
             }
+        }
+
+        // 3) Fin de l'attaque : quota épuisé ET tous morts → plus jamais rien
+        if (attaqueDeclenchee && !attaqueTerminee &&
+            nuisiblesSpawnes >= taillesAttaque && NuisiblesActifs() == 0)
+        {
+            attaqueTerminee = true;
+            Debug.Log(name + " : tous les nuisibles éliminés, la plante reprend sa croissance.");
         }
 
         // 3) Mort si vie ≤ 0
@@ -200,22 +221,34 @@ public class Pot : MonoBehaviour
 
     void SpawnNuisible()
     {
-        // Petit cube rouge avec lueur d'émission, sans collider
-        GameObject go = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        // Petite sphère noire, sans collider — effet "insecte volant"
+        GameObject go = GameObject.CreatePrimitive(PrimitiveType.Sphere);
         go.name = "Nuisible";
-        go.transform.localScale = Vector3.one * 0.08f;
+        go.transform.localScale = Vector3.one * 0.035f; // ~3.5 cm
         Object.Destroy(go.GetComponent<Collider>());
 
         Material mat = new Material(Shader.Find("Standard"));
-        mat.color = new Color(0.85f, 0.2f, 0.15f);
-        mat.SetColor("_EmissionColor", new Color(0.4f, 0.05f, 0.05f));
-        mat.EnableKeyword("_EMISSION");
+        mat.color = new Color(0.04f, 0.04f, 0.04f);
+        mat.SetFloat("_Glossiness", 0.15f);
         go.GetComponent<Renderer>().sharedMaterial = mat;
 
         Nuisible n = go.AddComponent<Nuisible>();
         n.potCible = this;
+        // Variations par insecte pour un effet "nuée" (chacun son orbite)
+        n.rayon            += Random.Range(-0.08f, 0.10f);
+        n.vitesseAngulaire += Random.Range(-40f, 50f);
+        n.amplitudeY        = Random.Range(0.04f, 0.12f);
+        n.vitesseY          = Random.Range(2f, 5f);
+
+        // Hauteur : moitié des nuisibles au sol (rampant), moitié en l'air (volant)
+        bool volant = Random.value < 0.5f;
+        n.hauteurCentre = volant
+            ? Random.Range(0.35f, 0.60f)   // insectes volants autour de la plante
+            : Random.Range(0.00f, 0.10f);  // insectes au sol près du pot
+
         nuisibles.Add(n);
-        Debug.Log(name + " : nuisible apparu (total " + nuisibles.Count + ").");
+        Debug.Log(name + " : nuisible " + (volant ? "volant" : "au sol") +
+                  " apparu (" + (nuisiblesSpawnes + 1) + "/" + taillesAttaque + ").");
     }
 
     void Mourir()

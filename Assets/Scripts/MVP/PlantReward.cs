@@ -13,11 +13,10 @@ public static class PlantReward
 {
     public static void DonnerRecompenses(int niveau)
     {
-        if (InventoryManager.Instance == null)
-        {
-            Debug.LogWarning("PlantReward : pas d'InventoryManager dans la scène.");
-            return;
-        }
+        // Garantit qu'on a un InventoryManager + SimpleUIMessage. Si le joueur
+        // n'a pas créé le GameObject "GameManager", on le crée automatiquement
+        // pour que le drop fonctionne quoi qu'il arrive.
+        AssurerManagers();
 
         if (niveau == 1)
         {
@@ -40,5 +39,26 @@ public static class PlantReward
         {
             Debug.LogWarning("PlantReward : niveau inconnu : " + niveau);
         }
+    }
+
+    // Crée automatiquement le GameObject "GameManager" avec les composants
+    // requis s'il n'existe pas — évite les drops perdus quand l'utilisateur
+    // a oublié l'étape de setup.
+    static void AssurerManagers()
+    {
+        if (InventoryManager.Instance != null && SimpleUIMessage.Instance != null) return;
+
+        GameObject gm = GameObject.Find("GameManager");
+        if (gm == null)
+        {
+            gm = new GameObject("GameManager");
+            Debug.Log("[PlantReward] GameManager créé automatiquement.");
+        }
+        if (InventoryManager.Instance == null && gm.GetComponent<InventoryManager>() == null)
+            gm.AddComponent<InventoryManager>();
+        if (SimpleUIMessage.Instance == null && gm.GetComponent<SimpleUIMessage>() == null)
+            gm.AddComponent<SimpleUIMessage>();
+        // Note : SeedUnlockManager n'est pas auto-créé ici — il a besoin des
+        // références aux sachets niveau 2 et 3 que seul l'utilisateur connaît.
     }
 }
