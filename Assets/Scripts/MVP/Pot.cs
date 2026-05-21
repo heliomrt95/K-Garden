@@ -46,6 +46,8 @@ public class Pot : MonoBehaviour
     public bool aGraine { get; private set; }
     public bool aEau { get; private set; }
     public bool morte { get; private set; }
+    public int niveauPlante { get; private set; } = 1; // 1, 2 ou 3 selon la graine plantée
+    public bool recompenseDonnee { get; private set; } // évite de donner les ressources 2x
 
     private Vector3 scaleGraineInit;     // scale de la graine au moment de planter
     private float tempsDepuisArrosage;
@@ -73,6 +75,13 @@ public class Pot : MonoBehaviour
             visuelGraine.transform.localScale = scaleGraineInit * factor;
         }
 
+        // 1b) À maturité ET vivante → récompense (une seule fois)
+        if (!recompenseDonnee && tempsDepuisArrosage >= dureeCroissance && !morte)
+        {
+            recompenseDonnee = true;
+            PlantReward.DonnerRecompenses(niveauPlante);
+        }
+
         // 2) Spawn aléatoire de nuisibles
         if (tempsDepuisArrosage > delaiAvantPremierSpawn)
         {
@@ -93,10 +102,27 @@ public class Pot : MonoBehaviour
     public float DureeAction(string item)
     {
         if (morte) return 0f;
-        if (item == "terre" && !aTerre)             return dureeRemplirTerre;
-        if (item == "graine" && aTerre && !aGraine) return dureePlanterGraine;
-        if (item == "eau" && aGraine && !aEau)      return dureeArroser;
+        if (item == "terre" && !aTerre)                        return dureeRemplirTerre;
+        if (EstUneGraine(item) && aTerre && !aGraine)          return dureePlanterGraine;
+        if (item == "eau" && aGraine && !aEau)                 return dureeArroser;
         return 0f;
+    }
+
+    // Vrai pour "graine", "graine_1", "graine_2", "graine_3"
+    static bool EstUneGraine(string item)
+    {
+        return item == "graine" || (item != null && item.StartsWith("graine_"));
+    }
+
+    // Extrait le niveau d'une graine ("graine_2" → 2). Défaut = 1.
+    static int NiveauDeGraine(string item)
+    {
+        if (item != null && item.StartsWith("graine_"))
+        {
+            int n;
+            if (int.TryParse(item.Substring("graine_".Length), out n)) return n;
+        }
+        return 1;
     }
 
     public string RaisonRefus(string item)
@@ -104,7 +130,7 @@ public class Pot : MonoBehaviour
         if (morte)             return "Cette plante est morte.";
         if (item == "")        return "Mains vides. Prends terre, graine ou arrosoir.";
         if (item == "terre")   return aTerre  ? "Le pot a déjà de la terre." : "";
-        if (item == "graine")  return !aTerre ? "Mets d'abord de la terre dans le pot." :
+        if (EstUneGraine(item))return !aTerre ? "Mets d'abord de la terre dans le pot." :
                                       aGraine ? "Une graine est déjà plantée." : "";
         if (item == "eau")     return !aTerre  ? "Mets d'abord de la terre." :
                                       !aGraine ? "Plante d'abord une graine." :

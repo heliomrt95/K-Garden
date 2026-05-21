@@ -17,11 +17,59 @@ public static class SolHerbeBuilder
     static readonly string[] TexturesCandidates =
     {
         "Assets/Resources/Textures/Grass_Diffuse.jpg",
+        "Assets/Resources/Textures/Grass_Diffuse.jpg.png",
+        "Assets/Scenes/Grass_Diffuse.jpg",
         "Assets/Resources/Textures/Grass1.jpg",
         "Assets/Resources/Textures/Grass1.png",
         "Assets/Resources/Textures/Grass2.jpg",
         "Assets/Resources/Textures/Grass2.png",
     };
+
+    [MenuItem("Tools/Créer Sol")]
+    public static void CreerSol()
+    {
+        // Si un sol existe déjà (Plane / Sol / Ground / Floor à la racine), demander.
+        GameObject existant = null;
+        GameObject[] tous = Resources.FindObjectsOfTypeAll<GameObject>();
+        foreach (var go in tous)
+        {
+            if (!go.scene.IsValid()) continue;
+            if (go.transform.parent != null) continue;
+            string n = go.name.ToLower();
+            if (n == "plane" || n == "sol" || n == "ground" || n == "floor")
+            {
+                existant = go; break;
+            }
+        }
+
+        if (existant != null)
+        {
+            if (!EditorUtility.DisplayDialog("Sol déjà présent",
+                    "Un sol nommé '" + existant.name + "' existe déjà. Le remplacer ?",
+                    "Oui", "Annuler"))
+                return;
+            Object.DestroyImmediate(existant);
+        }
+
+        // Crée un Plane primitif (10×10 unités à scale 1) — on le scale ×5 pour 50×50 m
+        GameObject sol = GameObject.CreatePrimitive(PrimitiveType.Plane);
+        sol.name = "Plane";
+        sol.transform.position = Vector3.zero;
+        sol.transform.localScale = new Vector3(5f, 1f, 5f);
+
+        // Static flags pour NavMesh / lightmaps
+        GameObjectUtility.SetStaticEditorFlags(sol,
+            StaticEditorFlags.ContributeGI | StaticEditorFlags.BatchingStatic |
+            StaticEditorFlags.NavigationStatic | StaticEditorFlags.OccluderStatic |
+            StaticEditorFlags.OccludeeStatic | StaticEditorFlags.ReflectionProbeStatic);
+
+        // Applique la texture herbe (réutilise la fonction existante)
+        Appliquer();
+
+        Selection.activeGameObject = sol;
+        EditorGUIUtility.PingObject(sol);
+        Debug.Log("✅ Sol 'Plane' créé (50×50 m, Y=0) avec texture herbe.");
+    }
 
     [MenuItem("Tools/Appliquer Texture Herbe au Sol")]
     public static void Appliquer()
