@@ -66,6 +66,61 @@ public static class ReparationScene
             resume + "\nLance le jeu pour vérifier que le sol reste vert.", "OK");
     }
 
+    // ── Diagnostic + reconfiguration FORCÉE des 3 pots ───────────────────────
+    // À utiliser si "mettre la terre dans le pot" ne fonctionne pas. Force :
+    //   - Suppression de tout Plant attaché
+    //   - Ajout d'un BoxCollider si manquant
+    //   - Ajout du script Pot si manquant
+    //   - Recréation des enfants Terre / Graine / Eau s'ils sont absents
+    [MenuItem("Tools/Configurer les 3 Pots")]
+    public static void ConfigurerLes3Pots()
+    {
+        int pots = 0;
+        System.Text.StringBuilder log = new System.Text.StringBuilder();
+
+        GameObject[] tous = Resources.FindObjectsOfTypeAll<GameObject>();
+        foreach (var go in tous)
+        {
+            if (!go.scene.IsValid()) continue;
+            if (go.transform.parent != null) continue;
+            if (!go.name.ToLower().StartsWith("pot")) continue;
+            // Filtre : on veut les pots interactifs (Pot 1, Pot 2, Pot 3),
+            // pas le "Pot" enfant d'un SachetGraines (qui est déjà filtré par
+            // le check parent ci-dessus).
+
+            // 1) Retire Plant s'il y en a
+            foreach (var p in go.GetComponents<Plant>()) Object.DestroyImmediate(p);
+
+            // 2) Sélectionne pour que ComposantsMenu.MarquerPot agisse dessus
+            Selection.activeGameObject = go;
+            ComposantsMenu.MarquerPot();
+
+            // 3) Vérifie l'état final
+            Pot pot = go.GetComponent<Pot>();
+            Collider col = go.GetComponentInChildren<Collider>();
+            Transform tTerre  = go.transform.Find("Terre");
+            Transform tGraine = go.transform.Find("Graine");
+            Transform tEau    = go.transform.Find("Eau");
+
+            log.AppendLine("• " + go.name + " :");
+            log.AppendLine("    Pot script   : " + (pot != null ? "OK" : "MANQUANT"));
+            log.AppendLine("    Collider     : " + (col != null ? "OK" : "MANQUANT"));
+            log.AppendLine("    Enfant Terre : " + (tTerre  != null ? "OK" : "MANQUANT"));
+            log.AppendLine("    Enfant Graine: " + (tGraine != null ? "OK" : "MANQUANT"));
+            log.AppendLine("    Enfant Eau   : " + (tEau    != null ? "OK" : "MANQUANT"));
+
+            pots++;
+        }
+
+        if (pots > 0)
+            UnityEditor.SceneManagement.EditorSceneManager.MarkAllScenesDirty();
+
+        string resume = "Pots traités : " + pots + "\n\n" + log.ToString();
+        Debug.Log("=== Configuration des Pots ===\n" + resume);
+        EditorUtility.DisplayDialog("Configuration des 3 Pots", resume +
+            "\nApproche-toi des pots (portée 3m) et clique-maintenu avec la terre.", "OK");
+    }
+
     [MenuItem("Tools/Réparer scène (ajouter scripts manquants)")]
     public static void Reparer()
     {
