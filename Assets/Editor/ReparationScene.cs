@@ -16,6 +16,56 @@ using UnityEngine;
 
 public static class ReparationScene
 {
+    // ── Réparation ciblée : sol vert qui devient marron + pots "Plant" → "Pot" ──
+    // Cause : un composant Plant a été attaché par erreur sur le Plane et sur
+    // les pots. Plant.Start() repeint le matériau en marron au Play mode, et
+    // empêche les pots de fonctionner avec le gameplay terre→graine→eau.
+    [MenuItem("Tools/Réparer Sol et Pots")]
+    public static void ReparerSolEtPots()
+    {
+        int plantRetires = 0;
+        int potsConvertis = 0;
+
+        GameObject[] tous = Resources.FindObjectsOfTypeAll<GameObject>();
+        foreach (var go in tous)
+        {
+            if (!go.scene.IsValid()) continue;
+            if (go.transform.parent != null) continue; // ne touche qu'aux objets racines
+
+            string nom = go.name.ToLower();
+            bool estSol = nom == "plane" || nom == "sol" || nom == "ground" || nom == "floor";
+            bool estPot = nom.StartsWith("pot");
+
+            if (!estSol && !estPot) continue;
+
+            // 1) Retire tous les Plant attachés
+            Plant[] plants = go.GetComponents<Plant>();
+            foreach (var p in plants)
+            {
+                Object.DestroyImmediate(p);
+                plantRetires++;
+                Debug.Log("[Repair] - Plant retiré de " + go.name);
+            }
+
+            // 2) Si c'est un pot, le convertir en vrai Pot (avec Terre/Graine/Eau)
+            if (estPot && go.GetComponent<Pot>() == null)
+            {
+                Selection.activeGameObject = go;
+                ComposantsMenu.MarquerPot(); // utilise les helpers existants
+                potsConvertis++;
+                Debug.Log("[Repair] + Pot configuré sur " + go.name);
+            }
+        }
+
+        if (plantRetires > 0 || potsConvertis > 0)
+            UnityEditor.SceneManagement.EditorSceneManager.MarkAllScenesDirty();
+
+        string resume = plantRetires + " Plant retiré(s), " + potsConvertis + " pot(s) configuré(s).";
+        Debug.Log("=== Réparation Sol et Pots : " + resume + " ===");
+        EditorUtility.DisplayDialog("Réparation Sol et Pots",
+            resume + "\nLance le jeu pour vérifier que le sol reste vert.", "OK");
+    }
+
     [MenuItem("Tools/Réparer scène (ajouter scripts manquants)")]
     public static void Reparer()
     {
