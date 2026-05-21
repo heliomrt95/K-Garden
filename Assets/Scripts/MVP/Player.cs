@@ -107,24 +107,28 @@ public class Player : MonoBehaviour
         // ── Spam-clic spray (cas spécial, prioritaire) ───────────────────────
         if (GameState.itemEnMain == "spray" && potVise != null && potVise.NuisiblesActifs() > 0)
         {
-            // Tout clic ajoute du progrès, mais ne déclenche pas le clic-maintenu
+            // 1) Tout clic ajoute du progrès
             if (Input.GetMouseButtonDown(0))
             {
                 cibleSpray = potVise;
                 progressionSpray = Mathf.Clamp01(progressionSpray + gainParClicSpray);
             }
 
-            // La barre se vide doucement entre les clics
-            if (cibleSpray != null)
-                progressionSpray = Mathf.Max(0f, progressionSpray - baisseSprayParSeconde * Time.deltaTime);
-
-            // À 100 % : tue un nuisible, repart de zéro
-            if (progressionSpray >= 1f && cibleSpray != null)
+            // 2) ⚠️ ORDRE CRITIQUE : vérifier le seuil AVANT la décroissance.
+            //    Si on inversait (décroissance d'abord), la barre redescendrait
+            //    sous 1.0 dans la même frame que le clic final → le nuisible
+            //    ne mourrait jamais bien que la barre soit visuellement pleine.
+            if (cibleSpray != null && progressionSpray >= 1f)
             {
                 cibleSpray.TuerUnNuisible();
                 progressionSpray = 0f;
                 if (cibleSpray.NuisiblesActifs() == 0) cibleSpray = null;
             }
+
+            // 3) Décroissance progressive entre les clics
+            if (cibleSpray != null)
+                progressionSpray = Mathf.Max(0f, progressionSpray - baisseSprayParSeconde * Time.deltaTime);
+
             return; // pas de logique clic-maintenu quand on est en mode spam
         }
 
