@@ -24,6 +24,10 @@ public class PorteFinale : MonoBehaviour
     public float angleOuverture = 95f;        // ° (mode Rotation seulement)
     public Vector3 axeRotation = Vector3.up;  // axe (mode Rotation seulement)
 
+    [Header("La serre bloque aussi le joueur — on la désactive en même temps")]
+    [Tooltip("À glisser : le GameObject 'Serre'. Si vide, cherché auto par nom.")]
+    public GameObject serreADesactiver;
+
     private bool ouvert = false;
 
     public void Ouvrir()
@@ -38,23 +42,37 @@ public class PorteFinale : MonoBehaviour
     {
         yield return new WaitForSeconds(delaiAvantAction);
 
-        if (mode == Mode.Disparition)
+        // 1) Anime / fait disparaître la porte
+        if (mode == Mode.Rotation)
+        {
+            Quaternion rotInit = transform.rotation;
+            Quaternion rotFin = rotInit * Quaternion.AngleAxis(angleOuverture, axeRotation);
+            float t = 0f;
+            while (t < dureeAnimation)
+            {
+                t += Time.deltaTime;
+                float k = Mathf.SmoothStep(0f, 1f, t / dureeAnimation);
+                transform.rotation = Quaternion.Slerp(rotInit, rotFin, k);
+                yield return null;
+            }
+            transform.rotation = rotFin;
+        }
+        else
         {
             gameObject.SetActive(false);
-            yield break;
         }
 
-        // Mode Rotation
-        Quaternion rotInit = transform.rotation;
-        Quaternion rotFin = rotInit * Quaternion.AngleAxis(angleOuverture, axeRotation);
-        float t = 0f;
-        while (t < dureeAnimation)
+        // 2) Désactive la SERRE pour que le joueur puisse sortir
+        //    (les panneaux/pignons/arches sont enfants de "Serre")
+        GameObject serre = serreADesactiver ?? GameObject.Find("Serre");
+        if (serre != null)
         {
-            t += Time.deltaTime;
-            float k = Mathf.SmoothStep(0f, 1f, t / dureeAnimation);
-            transform.rotation = Quaternion.Slerp(rotInit, rotFin, k);
-            yield return null;
+            serre.SetActive(false);
+            Debug.Log("[PorteFinale] Serre désactivée — le joueur peut sortir.");
         }
-        transform.rotation = rotFin;
+        else
+        {
+            Debug.LogWarning("[PorteFinale] Aucun GameObject 'Serre' trouvé à désactiver.");
+        }
     }
 }
