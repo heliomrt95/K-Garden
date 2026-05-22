@@ -30,6 +30,11 @@ public class Pot : MonoBehaviour
     public float dureeArroser = 1.0f;
     public float dureeCreuser = 1.5f;  // pelle : enlève la plante mature ou morte
 
+    [Header("Exigences (bac normal = 1, bac carnivore = 2)")]
+    public int terreRequise = 1;
+    public int eauRequise = 1;
+    public bool accepteUniquementCarnivore = false; // true pour le BacCarnivore
+
     [Header("Croissance")]
     public float dureeCroissance = 30f;   // secondes pour atteindre l'adulte
     public float facteurAdulte = 3.5f;    // taille adulte = scale initiale * ce facteur
@@ -42,12 +47,18 @@ public class Pot : MonoBehaviour
 
     // ── État interne ─────────────────────────────────────────────────────────
     public float vie { get; private set; }
-    public bool aTerre { get; private set; }
     public bool aGraine { get; private set; }
-    public bool aEau { get; private set; }
     public bool morte { get; private set; }
-    public int niveauPlante { get; private set; } = 1; // 1, 2 ou 3 selon la graine plantée
-    public bool recompenseDonnee { get; private set; } // évite de donner les ressources 2x
+    public int niveauPlante { get; private set; } = 1;
+    public bool recompenseDonnee { get; private set; }
+
+    // Compteurs (au lieu de bools) pour gérer le bac carnivore qui demande
+    // plusieurs actions de terre / d'eau. Les propriétés aTerre/aEau exposent
+    // un bool basé sur ces compteurs, pour ne pas casser le reste du code.
+    private int nbTerreAjoutee = 0;
+    private int nbEauAjoutee = 0;
+    public bool aTerre => nbTerreAjoutee >= terreRequise;
+    public bool aEau   => nbEauAjoutee   >= eauRequise;
 
     private Vector3 scaleGraineInit;     // scale de la graine au moment de planter
     private float tempsDepuisArrosage;
@@ -128,15 +139,23 @@ public class Pot : MonoBehaviour
     // ── Actions du joueur (appelées par Player.cs) ───────────────────────────
     public float DureeAction(string item)
     {
-        // La pelle : enlève une plante mature (récompense déjà donnée) OU morte.
-        // Doit être checkée AVANT le test "if (morte) return 0f" sinon une plante
-        // morte ne serait jamais retirable.
+        // La pelle : enlève une plante mature OU morte. Test avant le check morte.
         if (item == "pelle" && (recompenseDonnee || morte)) return dureeCreuser;
 
         if (morte) return 0f;
-        if (item == "terre" && !aTerre)                        return dureeRemplirTerre;
-        if (EstUneGraine(item) && aTerre && !aGraine)          return dureePlanterGraine;
-        if (item == "eau" && aGraine && !aEau)                 return dureeArroser;
+
+        // Filtre carnivore : ce bac n'accepte QUE la graine_4 ;
+        //                    inversement les autres bacs la refusent.
+        if (EstUneGraine(item))
+        {
+            bool estCarnivore = NiveauDeGraine(item) == 4;
+            if (accepteUniquementCarnivore && !estCarnivore) return 0f;
+            if (!accepteUniquementCarnivore && estCarnivore) return 0f;
+        }
+
+        if (item == "terre" && nbTerreAjoutee < terreRequise) return dureeRemplirTerre;
+        if (EstUneGraine(item) && aTerre && !aGraine)         return dureePlanterGraine;
+        if (item == "eau" && aGraine && nbEauAjoutee < eauRequise) return dureeArroser;
         return 0f;
     }
 
@@ -157,15 +176,35 @@ public class Pot : MonoBehaviour
         return 1;
     }
 
+    // Couleur de la plante selon son niveau (alignée sur la couleur du sachet)
+    static Color CouleurPourNiveau(int n)
+    {
+        switch (n)
+        {
+            case 2: return new Color(0.60f, 0.45f, 0.85f); // violet
+            case 3: return new Color(0.30f, 0.55f, 0.95f); // bleu
+            case 4: return new Color(0.85f, 0.15f, 0.15f); // rouge (carnivore)
+            default: return new Color(0.30f, 0.65f, 0.30f); // vert (N1)
+        }
+    }
+
     public string RaisonRefus(string item)
     {
         if (item == "pelle")   return (recompenseDonnee || morte) ? ""
                                      : "Rien à enlever : laisse la plante pousser.";
         if (morte)             return "Cette plante est morte. Utilise la pelle pour la retirer.";
         if (item == "")        return "Mains vides. Prends terre, graine ou arrosoir.";
-        if (item == "terre")   return aTerre  ? "Le pot a déjà de la terre." : "";
-        if (EstUneGraine(item))return !aTerre ? "Mets d'abord de la terre dans le pot." :
-                                      aGraine ? "Une graine est déjà plantée." : "";
+        if (item == "terre")   return aTerre  ? "Le pot a déjà assez de terre." : "";
+        if (EstUneGraine(item))
+        {
+            bool estCarnivore = NiveauDeGraine(item) == 4;
+            if (accepteUniquementCarnivore && !estCarnivore)
+                return "Ce bac n'accepte que la graine carnivore.";
+            if (!accepteUniquementCarnivore && estCarnivore)
+                return "La graine carnivore a besoin d'un bac spécial.";
+            return !aTerre ? "Mets d'abord assez de terre dans le pot." :
+                   aGraine ? "Une graine est déjà plantée." : "";
+        }
         if (item == "eau")     return !aTerre  ? "Mets d'abord de la terre." :
                                       !aGraine ? "Plante d'abord une graine." :
                                        aEau    ? "Le pot est déjà arrosé." : "";
@@ -188,12 +227,12 @@ public class Pot : MonoBehaviour
 
         if (morte) return;
 
-        if (item == "terre" && !aTerre)
+        if (item == "terre" && nbTerreAjoutee < terreRequise)
         {
-            aTerre = true;
-            if (visuelTerre != null) visuelTerre.SetActive(true);
+            nbTerreAjoutee++;
+            if (visuelTerre != null && nbTerreAjoutee == 1) visuelTerre.SetActive(true);
             GameState.LibererMain();
-            Debug.Log(name + " : rempli de terre.");
+            Debug.Log(name + " : terre " + nbTerreAjoutee + "/" + terreRequise + ".");
         }
         else if (EstUneGraine(item) && aTerre && !aGraine)
         {
@@ -203,17 +242,22 @@ public class Pot : MonoBehaviour
             {
                 visuelGraine.SetActive(true);
                 scaleGraineInit = visuelGraine.transform.localScale;
+                // Couleur de la plante alignée sur celle du sachet
+                Renderer r = visuelGraine.GetComponent<Renderer>();
+                if (r != null) r.material.color = CouleurPourNiveau(niveauPlante);
             }
             GameState.LibererMain();
             Debug.Log(name + " : graine N" + niveauPlante + " plantée.");
         }
-        else if (item == "eau" && aGraine && !aEau)
+        else if (item == "eau" && aGraine && nbEauAjoutee < eauRequise)
         {
-            aEau = true;
-            tempsDepuisArrosage = 0f;
-            if (visuelEau != null) visuelEau.SetActive(true);
-            // L'arrosoir reste en main : le joueur le repose avec R quand il veut
-            Debug.Log(name + " : arrosé — la plante commence à pousser.");
+            nbEauAjoutee++;
+            if (visuelEau != null && nbEauAjoutee == 1) visuelEau.SetActive(true);
+            // La croissance démarre quand on a atteint le seuil d'arrosage
+            if (nbEauAjoutee >= eauRequise) tempsDepuisArrosage = 0f;
+            // L'arrosoir reste en main : le joueur le repose avec R
+            Debug.Log(name + " : eau " + nbEauAjoutee + "/" + eauRequise +
+                      (nbEauAjoutee >= eauRequise ? " — la plante commence à pousser." : ""));
         }
     }
 
@@ -262,11 +306,12 @@ public class Pot : MonoBehaviour
         n.amplitudeY        = Random.Range(0.04f, 0.12f);
         n.vitesseY          = Random.Range(2f, 5f);
 
-        // Hauteur : moitié des nuisibles au sol (rampant), moitié en l'air (volant)
+        // Hauteur : moitié au sol (rampant), moitié en l'air (volant). Les
+        // volants sont bien au-dessus du pot, à hauteur de la plante.
         bool volant = Random.value < 0.5f;
         n.hauteurCentre = volant
-            ? Random.Range(0.35f, 0.60f)   // insectes volants autour de la plante
-            : Random.Range(0.00f, 0.10f);  // insectes au sol près du pot
+            ? Random.Range(0.70f, 1.10f)   // insectes volants à mi-hauteur / au-dessus
+            : Random.Range(0.20f, 0.35f);  // insectes rampant au-dessus du rebord du pot
 
         nuisibles.Add(n);
         Debug.Log(name + " : nuisible " + (volant ? "volant" : "au sol") +
@@ -293,9 +338,9 @@ public class Pot : MonoBehaviour
         }
 
         // 3) Reset de l'état logique
-        aTerre = false;
+        nbTerreAjoutee = 0;
+        nbEauAjoutee = 0;
         aGraine = false;
-        aEau = false;
         morte = false;
         recompenseDonnee = false;
         attaqueDeclenchee = false;

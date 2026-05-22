@@ -21,14 +21,20 @@ public class SeedUnlockManager : MonoBehaviour
     [Header("Sachets à afficher quand débloqués (optionnels — auto-créés sinon)")]
     public GameObject sachetGrainesN2;
     public GameObject sachetGrainesN3;
+    public GameObject sachetGrainesCarnivore;
 
     [Header("Position des sachets auto-créés (relative au sachet N1)")]
     public Vector3 offsetSachetN2 = new Vector3(0.3f, 0f, 0f);
     public Vector3 offsetSachetN3 = new Vector3(0.6f, 0f, 0f);
+    public Vector3 offsetSachetCarnivore = new Vector3(0.9f, 0f, 0f);
+
+    [Header("Coût en cristaux pour débloquer la graine carnivore")]
+    public int coutCristauxCarnivore = 1;
 
     [Header("État (lecture seule, géré automatiquement)")]
     public bool seedLevel2Debloque = false;
     public bool seedLevel3Debloque = false;
+    public bool seedCarnivoreDebloque = false;
 
     // ── Auto-instanciation au chargement de la scène ─────────────────────────
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
@@ -45,15 +51,15 @@ public class SeedUnlockManager : MonoBehaviour
 
     void Start()
     {
-        // Auto-détection : si l'utilisateur a placé manuellement les sachets
-        // N2/N3 dans la scène sans les référencer ici, on les retrouve par nom.
+        // Auto-détection des sachets par nom s'ils ne sont pas référencés ici
         if (sachetGrainesN2 == null) sachetGrainesN2 = GameObject.Find("SachetGraines_N2");
         if (sachetGrainesN3 == null) sachetGrainesN3 = GameObject.Find("SachetGraines_N3");
+        if (sachetGrainesCarnivore == null) sachetGrainesCarnivore = GameObject.Find("SachetGraines_N4");
 
-        // Cache TOUS les sachets N2/N3 qui ne sont pas encore débloqués —
-        // peu importe s'ils étaient actifs ou non dans la scène.
+        // Cache tous les sachets non encore débloqués
         if (sachetGrainesN2 != null && !seedLevel2Debloque) sachetGrainesN2.SetActive(false);
         if (sachetGrainesN3 != null && !seedLevel3Debloque) sachetGrainesN3.SetActive(false);
+        if (sachetGrainesCarnivore != null && !seedCarnivoreDebloque) sachetGrainesCarnivore.SetActive(false);
     }
 
     void Update()
@@ -82,34 +88,73 @@ public class SeedUnlockManager : MonoBehaviour
             SimpleUIMessage.Afficher("Nouvelle graine disponible !");
             Debug.Log("[Unlock] Seed Level 3 débloqué.");
         }
+
+        // ── Déblocage Graine Carnivore (N4) — coût en cristaux ───────────────
+        if (!seedCarnivoreDebloque &&
+            InventoryManager.Instance.HasEnough("cristalVegetal", coutCristauxCarnivore))
+        {
+            seedCarnivoreDebloque = true;
+            ActiverOuCreerSachet(4);
+            SimpleUIMessage.Afficher("Graine carnivore disponible !");
+            Debug.Log("[Unlock] Graine carnivore débloquée.");
+        }
     }
 
     // Active le sachet déjà référencé OU en crée un nouveau à côté du sachet N1.
     void ActiverOuCreerSachet(int niveau)
     {
-        GameObject sachet = (niveau == 2) ? sachetGrainesN2 : sachetGrainesN3;
+        // Récupère la référence selon le niveau
+        GameObject sachet = ObtenirReferenceSachet(niveau);
         if (sachet != null) { sachet.SetActive(true); return; }
 
-        // Cherche un sachet existant déjà dans la scène (au cas où il aurait
-        // été créé via le menu Tools mais pas glissé dans l'Inspector)
+        // Cherche un sachet existant dans la scène (créé via Tools mais pas référencé)
         sachet = GameObject.Find("SachetGraines_N" + niveau);
         if (sachet != null)
         {
             sachet.SetActive(true);
-            if (niveau == 2) sachetGrainesN2 = sachet;
-            else sachetGrainesN3 = sachet;
+            DefinirReferenceSachet(niveau, sachet);
             return;
         }
 
-        // Sinon, on en crée un automatiquement à côté du sachet N1
+        // Auto-création à côté du sachet N1
         GameObject sachetN1 = GameObject.Find("SachetGraines_N1") ?? GameObject.Find("SachetGraines");
         Vector3 basePos = sachetN1 != null ? sachetN1.transform.position : Vector3.zero;
-        Vector3 offset = (niveau == 2) ? offsetSachetN2 : offsetSachetN3;
+        Vector3 offset = ObtenirOffsetSachet(niveau);
 
         GameObject nouveau = SachetRuntimeBuilder.CreerSachet(niveau, basePos + offset);
-        if (niveau == 2) sachetGrainesN2 = nouveau;
-        else sachetGrainesN3 = nouveau;
-
+        DefinirReferenceSachet(niveau, nouveau);
         Debug.Log("[Unlock] Sachet N" + niveau + " créé automatiquement à " + (basePos + offset));
+    }
+
+    GameObject ObtenirReferenceSachet(int niveau)
+    {
+        switch (niveau)
+        {
+            case 2: return sachetGrainesN2;
+            case 3: return sachetGrainesN3;
+            case 4: return sachetGrainesCarnivore;
+            default: return null;
+        }
+    }
+
+    void DefinirReferenceSachet(int niveau, GameObject go)
+    {
+        switch (niveau)
+        {
+            case 2: sachetGrainesN2 = go; break;
+            case 3: sachetGrainesN3 = go; break;
+            case 4: sachetGrainesCarnivore = go; break;
+        }
+    }
+
+    Vector3 ObtenirOffsetSachet(int niveau)
+    {
+        switch (niveau)
+        {
+            case 2: return offsetSachetN2;
+            case 3: return offsetSachetN3;
+            case 4: return offsetSachetCarnivore;
+            default: return Vector3.zero;
+        }
     }
 }
