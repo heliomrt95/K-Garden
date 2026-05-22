@@ -40,6 +40,9 @@ public class SeedUnlockManager : MonoBehaviour
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
     static void AutoInit()
     {
+        // N'auto-init que dans une scène de gameplay : si aucun Pot n'existe,
+        // on est probablement dans un menu — pas besoin de l'inventaire.
+        if (Object.FindAnyObjectByType<Pot>() == null) return;
         if (FindAnyObjectByType<SeedUnlockManager>() != null) return;
 
         GameObject gm = GameObject.Find("GameManager") ?? new GameObject("GameManager");

@@ -1,15 +1,17 @@
 // BacCarnivoreBuilder.cs
 // -----------------------------------------------------------------------------
-// Menu "Tools > Créer Bac Carnivore" : crée un pot spécial au fond de la serre,
-// destiné à la graine carnivore (typeItem = "graine_4").
+// Menu "Tools > Créer Bac Carnivore" : instancie PlanterBox.fbx (bac CARRÉ,
+// même modèle que BacATerre) configuré comme bac spécial pour la graine
+// carnivore.
 //
 // Différences avec un pot normal :
-//   - Matériau plus sombre (terracotta noir/sang)
+//   - Modèle CARRÉ (PlanterBox.fbx) au lieu du pot rond
+//   - Matériau sombre / sang
 //   - accepteUniquementCarnivore = true   → refuse les autres graines
 //   - terreRequise = 2                   → 2 actions de mise de terre
 //   - eauRequise = 2                     → 2 cycles d'arrosage
 //
-// Réutilise le modèle ClayPot.fbx et toute la logique Pot.cs.
+// Réutilise toute la logique Pot.cs.
 // -----------------------------------------------------------------------------
 
 using UnityEditor;
@@ -18,17 +20,17 @@ using System.IO;
 
 public static class BacCarnivoreBuilder
 {
-    const string CHEMIN_FBX = "Assets/Resources/Tools/ClayPot.fbx";
+    const string CHEMIN_FBX = "Assets/Resources/Tools/PlanterBox.fbx";
 
     [MenuItem("Tools/Créer Bac Carnivore")]
     public static void CreerBac()
     {
-        // 1) Charge le modèle 3D (même que les pots normaux)
+        // 1) Charge le modèle (bac carré)
         GameObject fbx = AssetDatabase.LoadAssetAtPath<GameObject>(CHEMIN_FBX);
         if (fbx == null)
         {
             EditorUtility.DisplayDialog("Modèle introuvable",
-                "ClayPot.fbx introuvable à " + CHEMIN_FBX, "OK");
+                "PlanterBox.fbx introuvable à " + CHEMIN_FBX, "OK");
             return;
         }
 
@@ -37,15 +39,15 @@ public static class BacCarnivoreBuilder
         bac.name = "BacCarnivore";
         bac.transform.position = Vector3.zero;
 
-        // 3) Auto-scale : ~45 cm de haut (un peu plus gros qu'un pot normal)
+        // 3) Auto-scale : largeur ~80 cm + pose la base à Y=0
         Renderer[] rs = bac.GetComponentsInChildren<Renderer>();
         Bounds bw = new Bounds();
         if (rs.Length > 0)
         {
             Bounds b = rs[0].bounds;
             for (int i = 1; i < rs.Length; i++) b.Encapsulate(rs[i].bounds);
-            if (b.size.y > 0.001f)
-                bac.transform.localScale = Vector3.one * (0.45f / b.size.y);
+            float maxXZ = Mathf.Max(b.size.x, b.size.z);
+            if (maxXZ > 0.001f) bac.transform.localScale = Vector3.one * (0.80f / maxXZ);
 
             bw = rs[0].bounds;
             for (int i = 1; i < rs.Length; i++) bw.Encapsulate(rs[i].bounds);
@@ -54,10 +56,10 @@ public static class BacCarnivoreBuilder
             bw = rs[0].bounds;
             for (int i = 1; i < rs.Length; i++) bw.Encapsulate(rs[i].bounds);
         }
-        else bw = new Bounds(bac.transform.position + Vector3.up * 0.22f, new Vector3(0.4f, 0.45f, 0.4f));
+        else bw = new Bounds(bac.transform.position + Vector3.up * 0.15f, new Vector3(0.8f, 0.3f, 0.8f));
 
-        // 4) Matériau noir/sang pour le bac
-        Material matBac = ChargerOuCreerMateriau("TerracottaCarnivore",
+        // 4) Matériau noir/sang sur les planches du bac
+        Material matBac = ChargerOuCreerMateriau("BoisCarnivore",
             new Color(0.18f, 0.04f, 0.04f), 0.10f, 0.20f);
         foreach (Renderer rend in rs)
         {
@@ -74,10 +76,12 @@ public static class BacCarnivoreBuilder
         Material matEau = ChargerOuCreerMateriau("Water",
             new Color(0.25f, 0.55f, 0.85f), 0.2f, 0.95f);
 
-        // 6) Enfants Terre/Graine/Eau (mêmes ratios que PotBuilder)
-        GameObject visuelTerre  = CreerEnfantPrimitive(bac, "Terre",  PrimitiveType.Cylinder, bw, 0.20f, 0.78f, 0.18f, matTerre);
-        GameObject visuelGraine = CreerEnfantPrimitive(bac, "Graine", PrimitiveType.Cylinder, bw, 0.55f, 0.08f, 0.40f, matGraine);
-        GameObject visuelEau    = CreerEnfantPrimitive(bac, "Eau",    PrimitiveType.Cylinder, bw, 0.40f, 0.72f, 0.02f, matEau);
+        // 6) Enfants Terre/Graine/Eau — pour un bac carré, on utilise des cubes
+        //    pour la terre (qui remplit le rectangle) et des cylindres pour la
+        //    graine + l'eau (au centre).
+        GameObject visuelTerre  = CreerEnfantPrimitive(bac, "Terre",  PrimitiveType.Cube,     bw, 0.20f, 0.92f, 0.40f, matTerre);
+        GameObject visuelGraine = CreerEnfantPrimitive(bac, "Graine", PrimitiveType.Cylinder, bw, 0.55f, 0.10f, 0.50f, matGraine);
+        GameObject visuelEau    = CreerEnfantPrimitive(bac, "Eau",    PrimitiveType.Cube,     bw, 0.40f, 0.85f, 0.05f, matEau);
 
         // 7) Script Pot configuré pour le bac carnivore
         Pot scriptPot = bac.AddComponent<Pot>();
@@ -95,10 +99,10 @@ public static class BacCarnivoreBuilder
         bc.size = new Vector3(bw.size.x / ls.x, bw.size.y / ls.y, bw.size.z / ls.z);
 
         Selection.activeGameObject = bac;
-        Debug.Log("✅ BacCarnivore créé. Accepte uniquement la graine_4. Exigence : 2 terre + 2 eau.");
+        Debug.Log("✅ BacCarnivore (carré) créé. Accepte uniquement la graine_4. Exigence : 2 terre + 2 eau.");
     }
 
-    // ── Helpers (copiés de PotBuilder, gardés indépendants) ──────────────────
+    // ── Helpers ──────────────────────────────────────────────────────────────
     static GameObject CreerEnfantPrimitive(GameObject parent, string nom, PrimitiveType type, Bounds wb,
                                             float offsetYRatio, float taillXZ, float taillY, Material mat)
     {
