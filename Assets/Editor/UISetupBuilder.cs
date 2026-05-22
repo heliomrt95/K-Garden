@@ -32,6 +32,72 @@ public static class UISetupBuilder
     static readonly Color CFondVert = new Color(0.55f, 0.78f, 0.55f);    // placeholder fond
     static readonly Color CSliderBg = new Color(0.85f, 0.65f, 0.45f);    // barre sliders
 
+    // ── Application du logo sur les Logo_KGarden de la scène ─────────────────
+    [MenuItem("Tools/UI/Appliquer Logo K-Garden")]
+    public static void AppliquerLogo()
+    {
+        Sprite sprite = ChargerSpriteLogo();
+        if (sprite == null)
+        {
+            EditorUtility.DisplayDialog("Logo introuvable",
+                "Aucun logo trouvé. Essayé : Assets/logo.png, Assets/Logo.png, Assets/logo 1.png.\n" +
+                "Place ton logo et relance.", "OK");
+            return;
+        }
+
+        int n = 0;
+        foreach (var img in Object.FindObjectsByType<Image>(FindObjectsSortMode.None))
+        {
+            if (img.gameObject.name != "Logo_KGarden") continue;
+            AppliquerSpriteSurLogo(img, sprite);
+            n++;
+        }
+        if (n > 0) UnityEditor.SceneManagement.EditorSceneManager.MarkAllScenesDirty();
+        EditorUtility.DisplayDialog("Logo K-Garden",
+            n + " logo(s) mis à jour.\n" +
+            (n == 0 ? "Astuce : ouvre la scène MainMenu d'abord." : ""), "OK");
+    }
+
+    static Sprite ChargerSpriteLogo()
+    {
+        string[] candidats = { "Assets/logo.png", "Assets/Logo.png", "Assets/logo 1.png", "Assets/Logo 1.png" };
+        foreach (var path in candidats)
+        {
+            if (!System.IO.File.Exists(path)) continue;
+
+            // S'assure que le fichier est importé comme Sprite (et pas Texture)
+            TextureImporter ti = AssetImporter.GetAtPath(path) as TextureImporter;
+            if (ti != null && ti.textureType != TextureImporterType.Sprite)
+            {
+                ti.textureType = TextureImporterType.Sprite;
+                ti.SaveAndReimport();
+            }
+            Sprite s = AssetDatabase.LoadAssetAtPath<Sprite>(path);
+            if (s != null) return s;
+        }
+        return null;
+    }
+
+    static void AppliquerSpriteSurLogo(Image img, Sprite sprite)
+    {
+        img.sprite = sprite;
+        img.color = Color.white;
+        img.preserveAspect = true;
+        img.type = Image.Type.Simple;
+
+        // Supprime le placeholder texte "K-GARDEN" si présent
+        Transform t = img.transform.Find("Placeholder_Text");
+        if (t != null) Object.DestroyImmediate(t.gameObject);
+
+        // Adapte la taille en conservant le ratio du sprite
+        if (sprite.rect.height > 0)
+        {
+            float ratio = sprite.rect.width / sprite.rect.height;
+            float hauteurCible = 280f; // garde la même hauteur que le placeholder
+            img.rectTransform.sizeDelta = new Vector2(hauteurCible * ratio, hauteurCible);
+        }
+    }
+
     // ── Reset & reconstruction propre ────────────────────────────────────────
     [MenuItem("Tools/UI/RESET et Reconstruire Menu Principal")]
     public static void ResetEtReconstruire()
@@ -71,10 +137,15 @@ public static class UISetupBuilder
         GameObject panelMenu = CreerPanel(canvas.transform, "Panel_MainMenu");
         StretchFull(panelMenu.GetComponent<RectTransform>());
 
-        // Logo placeholder à gauche
+        // Logo à gauche : essaie de charger Assets/logo.png automatiquement.
+        // Si absent → placeholder texte "K-GARDEN" qui sera remplacé plus tard.
         Image logo = CreerImage(panelMenu.transform, "Logo_KGarden", Color.white);
         AncrerEnHautGauche(logo.rectTransform, new Vector2(100, -100), new Vector2(700, 280));
-        AjouterTextePlaceholder(logo.gameObject, "K-GARDEN", 80, CMarron);
+        Sprite spriteLogo = ChargerSpriteLogo();
+        if (spriteLogo != null)
+            AppliquerSpriteSurLogo(logo, spriteLogo);
+        else
+            AjouterTextePlaceholder(logo.gameObject, "K-GARDEN", 80, CMarron);
 
         // Label "Menu" en bas à gauche — couleur foncée + outline blanc épais
         // pour rester lisible sur n'importe quel fond
