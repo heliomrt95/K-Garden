@@ -233,6 +233,8 @@ public class Pot : MonoBehaviour
             if (visuelTerre != null && nbTerreAjoutee == 1) visuelTerre.SetActive(true);
             GameState.LibererMain();
             Debug.Log(name + " : terre " + nbTerreAjoutee + "/" + terreRequise + ".");
+            if (AudioManager.Instance != null)
+                AudioManager.Instance.Play(AudioManager.Instance.pickupDirt);
         }
         else if (EstUneGraine(item) && aTerre && !aGraine)
         {
@@ -248,6 +250,8 @@ public class Pot : MonoBehaviour
             }
             GameState.LibererMain();
             Debug.Log(name + " : graine N" + niveauPlante + " plantée.");
+            if (AudioManager.Instance != null)
+                AudioManager.Instance.Play(AudioManager.Instance.plantSeed);
         }
         else if (item == "eau" && aGraine && nbEauAjoutee < eauRequise)
         {
@@ -258,6 +262,19 @@ public class Pot : MonoBehaviour
             // L'arrosoir reste en main : le joueur le repose avec R
             Debug.Log(name + " : eau " + nbEauAjoutee + "/" + eauRequise +
                       (nbEauAjoutee >= eauRequise ? " — la plante commence à pousser." : ""));
+
+            if (AudioManager.Instance != null)
+            {
+                AudioManager.Instance.Play(AudioManager.Instance.wateringCan);
+                // Quand l'arrosage déclenche la croissance, son spécifique
+                if (nbEauAjoutee >= eauRequise)
+                {
+                    AudioClip clipPousse = (niveauPlante == 4)
+                        ? AudioManager.Instance.carnivoreGrow
+                        : AudioManager.Instance.plantGrow;
+                    AudioManager.Instance.PlayAt(clipPousse, transform.position, 0.8f);
+                }
+            }
         }
     }
 

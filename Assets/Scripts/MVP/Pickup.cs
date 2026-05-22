@@ -59,5 +59,14 @@ public class Pickup : MonoBehaviour
         GameState.consommerAuRelache = false; // outil : retourne à sa place après usage
 
         Debug.Log("Tu as pris : " + typeItem);
+
+        // Son de ramassage selon le type d'objet
+        if (AudioManager.Instance != null)
+        {
+            AudioClip clip = (typeItem == "graine" || typeItem.StartsWith("graine_"))
+                ? AudioManager.Instance.pickupSeed
+                : AudioManager.Instance.pickupTool;
+            AudioManager.Instance.Play(clip);
+        }
     }
 }

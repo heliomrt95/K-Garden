@@ -18,6 +18,8 @@ public class MainMenuController : MonoBehaviour
 
     public void Jouer()
     {
+        if (AudioManager.Instance != null)
+            AudioManager.Instance.Play(AudioManager.Instance.menuClick1);
         if (string.IsNullOrEmpty(nomSceneJeu))
         {
             Debug.LogError("[MainMenu] Aucune scène configurée. Renseigne 'Nom Scene Jeu' " +
@@ -50,19 +52,28 @@ public class MainMenuController : MonoBehaviour
 
     public void OuvrirBoutique()
     {
+        ClicSecondaire();
         Debug.Log("Boutique pas encore implémentée.");
     }
 
     public void OuvrirReglages()
     {
+        ClicSecondaire();
         if (panelMenu != null)     panelMenu.SetActive(false);
         if (panelSettings != null) panelSettings.SetActive(true);
     }
 
     public void FermerReglages()
     {
+        ClicSecondaire();
         if (panelSettings != null) panelSettings.SetActive(false);
         if (panelMenu != null)     panelMenu.SetActive(true);
+    }
+
+    static void ClicSecondaire()
+    {
+        if (AudioManager.Instance != null)
+            AudioManager.Instance.Play(AudioManager.Instance.menuClick2);
     }
 
     public void Quitter()

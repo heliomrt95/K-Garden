@@ -35,6 +35,19 @@ public class Nuisible : MonoBehaviour
         t = Random.Range(0f, 100f);
 
         centre = potCible.transform.position + Vector3.up * hauteurCentre;
+
+        // Son d'ambiance 3D : bourdonnement loopé attaché au nuisible
+        if (AudioManager.Instance != null && AudioManager.Instance.insectFly != null)
+        {
+            AudioSource src = gameObject.AddComponent<AudioSource>();
+            src.clip = AudioManager.Instance.insectFly;
+            src.loop = true;
+            src.spatialBlend = 1f;           // 3D
+            src.minDistance = 0.5f;
+            src.maxDistance = 6f;
+            src.volume = AudioManager.Volume2D(0.6f);
+            src.Play();
+        }
     }
 
     void Update()

@@ -41,6 +41,7 @@ public class PauseMenu : MonoBehaviour
 
     public void Reprendre()
     {
+        ClicSecondaire();
         enPause = false;
         if (panelPause != null) panelPause.SetActive(false);
         Time.timeScale = 1f;
@@ -50,19 +51,29 @@ public class PauseMenu : MonoBehaviour
 
     public void OuvrirReglages()
     {
+        ClicSecondaire();
         if (panelPause != null) panelPause.SetActive(false);
         if (panelSettings != null) panelSettings.SetActive(true);
     }
 
     public void FermerReglages()
     {
+        ClicSecondaire();
         if (panelSettings != null) panelSettings.SetActive(false);
         if (panelPause != null) panelPause.SetActive(true);
     }
 
     public void RetourMenuPrincipal()
     {
+        if (AudioManager.Instance != null)
+            AudioManager.Instance.Play(AudioManager.Instance.menuClick1);
         Time.timeScale = 1f;
         SceneManager.LoadScene(nomSceneMenu);
+    }
+
+    static void ClicSecondaire()
+    {
+        if (AudioManager.Instance != null)
+            AudioManager.Instance.Play(AudioManager.Instance.menuClick2);
     }
 }

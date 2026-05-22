@@ -18,6 +18,15 @@ public static class PlantReward
         // pour que le drop fonctionne quoi qu'il arrive.
         AssurerManagers();
 
+        // Son de récompense (niveaux 1-3 → keySpawn ; niveau 4 → rugissement)
+        if (AudioManager.Instance != null)
+        {
+            AudioClip clip = (niveau == 4)
+                ? AudioManager.Instance.carnivoreRoar
+                : AudioManager.Instance.keySpawn;
+            AudioManager.Instance.Play(clip, 0.9f);
+        }
+
         if (niveau == 1)
         {
             InventoryManager.Instance.AddItem("pollen", 1);

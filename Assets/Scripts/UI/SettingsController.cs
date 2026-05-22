@@ -52,6 +52,9 @@ public class SettingsController : MonoBehaviour
 
     public void Terminer()
     {
+        if (AudioManager.Instance != null)
+            AudioManager.Instance.Play(AudioManager.Instance.menuClick2);
+
         // Cache le panel — le MainMenuController ou PauseMenu réactivera le panel parent
         gameObject.SetActive(false);
 

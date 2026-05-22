@@ -31,6 +31,8 @@ public class Player : MonoBehaviour
     private CharacterController controleur;
     private Camera cam;
     private float rotationVerticale = 0f;
+    private float prochainBruitDePas = 0f;
+    const float INTERVALLE_PAS = 0.45f;
 
     // ── Clic maintenu (terre / graine / eau) ─────────────────────────────────
     private GameObject cibleActuelle;
@@ -70,6 +72,14 @@ public class Player : MonoBehaviour
         Vector3 direction = transform.right * h + transform.forward * v;
         direction.y = -9.81f * Time.deltaTime;
         controleur.Move(direction * vitesse * Time.deltaTime);
+
+        // Bruit de pas : joué à intervalle régulier seulement quand on bouge
+        bool bouge = Mathf.Abs(h) > 0.05f || Mathf.Abs(v) > 0.05f;
+        if (bouge && Time.time >= prochainBruitDePas && AudioManager.Instance != null)
+        {
+            AudioManager.Instance.Play(AudioManager.Instance.footstep, 0.7f);
+            prochainBruitDePas = Time.time + INTERVALLE_PAS;
+        }
     }
 
     void Rotation()
@@ -112,6 +122,8 @@ public class Player : MonoBehaviour
             {
                 cibleSpray = potVise;
                 progressionSpray = Mathf.Clamp01(progressionSpray + gainParClicSpray);
+                if (AudioManager.Instance != null)
+                    AudioManager.Instance.Play(AudioManager.Instance.spray, 0.8f);
             }
 
             // 2) ⚠️ ORDRE CRITIQUE : vérifier le seuil AVANT la décroissance.

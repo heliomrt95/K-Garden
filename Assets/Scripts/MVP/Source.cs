@@ -63,5 +63,18 @@ public class Source : MonoBehaviour
         GameState.consommerAuRelache = true; // ressource : détruite après usage
 
         Debug.Log("Tu as pris : " + typeItem);
+
+        // Son selon la ressource ramassée
+        if (AudioManager.Instance != null)
+        {
+            AudioClip clip;
+            if (typeItem == "terre")
+                clip = AudioManager.Instance.pickupDirt;
+            else if (typeItem == "graine" || typeItem.StartsWith("graine_"))
+                clip = AudioManager.Instance.pickupSeed;
+            else
+                clip = AudioManager.Instance.pickupDirt; // défaut
+            AudioManager.Instance.Play(clip);
+        }
     }
 }
