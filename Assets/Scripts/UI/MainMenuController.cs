@@ -18,7 +18,34 @@ public class MainMenuController : MonoBehaviour
 
     public void Jouer()
     {
+        if (string.IsNullOrEmpty(nomSceneJeu))
+        {
+            Debug.LogError("[MainMenu] Aucune scène configurée. Renseigne 'Nom Scene Jeu' " +
+                           "dans l'Inspector de UIManager → MainMenuController.");
+            return;
+        }
+
+        // Vérifie que la scène est bien dans Build Settings
+        if (!SceneExisteDansBuild(nomSceneJeu))
+        {
+            Debug.LogError("[MainMenu] Scène '" + nomSceneJeu + "' introuvable dans les Build " +
+                           "Settings. Va dans File > Build Settings et ajoute la scène. " +
+                           "Vérifie aussi l'orthographe exacte (sensible à la casse).");
+            return;
+        }
+
         SceneManager.LoadScene(nomSceneJeu);
+    }
+
+    static bool SceneExisteDansBuild(string nom)
+    {
+        for (int i = 0; i < SceneManager.sceneCountInBuildSettings; i++)
+        {
+            string path = UnityEngine.SceneManagement.SceneUtility.GetScenePathByBuildIndex(i);
+            string n = System.IO.Path.GetFileNameWithoutExtension(path);
+            if (n == nom) return true;
+        }
+        return false;
     }
 
     public void OuvrirBoutique()
