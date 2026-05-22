@@ -2122,7 +2122,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::MainMenuController
   panelMenu: {fileID: 515671094}
   panelSettings: {fileID: 2079056161}
-  nomSceneJeu: MainGame
+  nomSceneJeu: scene
 --- !u!21 &730504939
 Material:
   serializedVersion: 8

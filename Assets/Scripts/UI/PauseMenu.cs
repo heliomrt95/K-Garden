@@ -71,6 +71,18 @@ public class PauseMenu : MonoBehaviour
         SceneManager.LoadScene(nomSceneMenu);
     }
 
+    public void Quitter()
+    {
+        if (AudioManager.Instance != null)
+            AudioManager.Instance.Play(AudioManager.Instance.menuClick1);
+        Time.timeScale = 1f;
+#if UNITY_EDITOR
+        UnityEditor.EditorApplication.isPlaying = false;
+#else
+        Application.Quit();
+#endif
+    }
+
     static void ClicSecondaire()
     {
         if (AudioManager.Instance != null)

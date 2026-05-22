@@ -60,12 +60,20 @@ public static class UISetupBuilder
 
     static Sprite ChargerSpriteLogo()
     {
-        string[] candidats = { "Assets/logo.png", "Assets/Logo.png", "Assets/logo 1.png", "Assets/Logo 1.png" };
-        foreach (var path in candidats)
+        // Cherche n'importe quel asset Texture2D dont le nom commence par "logo"
+        // (insensible à la casse), peu importe où il est dans Assets/
+        string[] guids = AssetDatabase.FindAssets("logo t:Texture2D");
+        foreach (var guid in guids)
         {
-            if (!System.IO.File.Exists(path)) continue;
+            string path = AssetDatabase.GUIDToAssetPath(guid);
+            // Ignore les sous-packs (Pure Poly, BOXOPHOBIC, etc.) pour ne pas
+            // attraper un logo de pack par erreur
+            if (path.Contains("Pure Poly") || path.Contains("BOXOPHOBIC")) continue;
 
-            // S'assure que le fichier est importé comme Sprite (et pas Texture)
+            string nom = System.IO.Path.GetFileNameWithoutExtension(path).ToLower();
+            if (!nom.StartsWith("logo")) continue;
+
+            // Force l'import en Sprite
             TextureImporter ti = AssetImporter.GetAtPath(path) as TextureImporter;
             if (ti != null && ti.textureType != TextureImporterType.Sprite)
             {
@@ -73,7 +81,11 @@ public static class UISetupBuilder
                 ti.SaveAndReimport();
             }
             Sprite s = AssetDatabase.LoadAssetAtPath<Sprite>(path);
-            if (s != null) return s;
+            if (s != null)
+            {
+                Debug.Log("[Logo] Trouvé : " + path);
+                return s;
+            }
         }
         return null;
     }
