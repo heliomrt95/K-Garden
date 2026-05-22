@@ -45,9 +45,15 @@ public class SeedUnlockManager : MonoBehaviour
 
     void Start()
     {
-        // Cache les sachets pré-référencés (ils apparaîtront au déblocage)
-        if (sachetGrainesN2 != null) sachetGrainesN2.SetActive(false);
-        if (sachetGrainesN3 != null) sachetGrainesN3.SetActive(false);
+        // Auto-détection : si l'utilisateur a placé manuellement les sachets
+        // N2/N3 dans la scène sans les référencer ici, on les retrouve par nom.
+        if (sachetGrainesN2 == null) sachetGrainesN2 = GameObject.Find("SachetGraines_N2");
+        if (sachetGrainesN3 == null) sachetGrainesN3 = GameObject.Find("SachetGraines_N3");
+
+        // Cache TOUS les sachets N2/N3 qui ne sont pas encore débloqués —
+        // peu importe s'ils étaient actifs ou non dans la scène.
+        if (sachetGrainesN2 != null && !seedLevel2Debloque) sachetGrainesN2.SetActive(false);
+        if (sachetGrainesN3 != null && !seedLevel3Debloque) sachetGrainesN3.SetActive(false);
     }
 
     void Update()
