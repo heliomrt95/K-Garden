@@ -46,9 +46,15 @@ public static class PlantReward
         }
         else if (niveau == 4)
         {
-            // Plante carnivore : objectif final, pas de drop matériel pour
-            // l'instant — juste un message glorieux.
-            SimpleUIMessage.Afficher("La plante carnivore a atteint sa maturité !");
+            // Plante carnivore : objectif final → drop la clé de victoire
+            // juste au-dessus du BacCarnivore (ou de l'origine en fallback).
+            SimpleUIMessage.Afficher("La plante carnivore a libéré une clé dorée !");
+
+            GameObject bac = GameObject.Find("BacCarnivore");
+            Vector3 posCle = bac != null
+                ? bac.transform.position + Vector3.up * 0.6f
+                : Vector3.up * 1f;
+            CleSpawner.SpawnCle(posCle);
         }
         else
         {

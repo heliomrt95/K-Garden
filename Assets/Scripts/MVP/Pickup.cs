@@ -68,5 +68,9 @@ public class Pickup : MonoBehaviour
                 : AudioManager.Instance.pickupTool;
             AudioManager.Instance.Play(clip);
         }
+
+        // Si c'est la clé de victoire → déclenche l'ouverture de la porte
+        CleVictoire cle = GetComponent<CleVictoire>();
+        if (cle != null) cle.OnRamasse();
     }
 }
