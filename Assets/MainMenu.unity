@@ -579,8 +579,8 @@ MonoBehaviour:
       m_Calls: []
   m_text: JOUER
   m_isRightToLeft: 0
-  m_fontAsset: {fileID: 11400000, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
-  m_sharedMaterial: {fileID: 1574552541}
+  m_fontAsset: {fileID: 11400000, guid: 15952d2ec588a4fe3aac10dcefe87e15, type: 2}
+  m_sharedMaterial: {fileID: 5655052135919816344, guid: 15952d2ec588a4fe3aac10dcefe87e15, type: 2}
   m_fontSharedMaterials: []
   m_fontMaterial: {fileID: 1574552541}
   m_fontMaterials: []
@@ -604,10 +604,10 @@ MonoBehaviour:
   m_faceColor:
     serializedVersion: 2
     rgba: 4294967295
-  m_fontSize: 40
+  m_fontSize: 72
   m_fontSizeBase: 40
   m_fontWeight: 400
-  m_enableAutoSizing: 0
+  m_enableAutoSizing: 1
   m_fontSizeMin: 18
   m_fontSizeMax: 72
   m_fontStyle: 1
@@ -1459,8 +1459,8 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 1}
   m_AnchorMax: {x: 0, y: 1}
-  m_AnchoredPosition: {x: 100, y: -100}
-  m_SizeDelta: {x: 513.3751, y: 280}
+  m_AnchoredPosition: {x: -168.99994, y: 13.1}
+  m_SizeDelta: {x: 1340.3, y: 1510.2}
   m_Pivot: {x: 0, y: 1}
 --- !u!114 &455954652
 MonoBehaviour:
@@ -1513,7 +1513,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Shadow
   m_EffectColor: {r: 0, g: 0, b: 0, a: 0.5}
-  m_EffectDistance: {x: 1, y: -1}
+  m_EffectDistance: {x: 2.18, y: -7.18}
   m_UseGraphicAlpha: 1
 --- !u!1 &486361964
 GameObject:
@@ -2751,6 +2751,7 @@ GameObject:
   - component: {fileID: 936319382}
   - component: {fileID: 936319381}
   - component: {fileID: 936319380}
+  - component: {fileID: 936319384}
   m_Layer: 0
   m_Name: Button_Reglage
   m_TagString: Untagged
@@ -2892,6 +2893,21 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 936319378}
   m_CullTransparentMesh: 1
+--- !u!114 &936319384
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 936319378}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: cfabb0440166ab443bba8876756fdfa9, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Shadow
+  m_EffectColor: {r: 0, g: 0, b: 0, a: 0.5}
+  m_EffectDistance: {x: 1, y: -5.98}
+  m_UseGraphicAlpha: 1
 --- !u!21 &950812547
 Material:
   serializedVersion: 8
@@ -3199,6 +3215,7 @@ GameObject:
   - component: {fileID: 1108588206}
   - component: {fileID: 1108588205}
   - component: {fileID: 1108588204}
+  - component: {fileID: 1108588208}
   m_Layer: 0
   m_Name: Button_Boutique
   m_TagString: Untagged
@@ -3340,6 +3357,21 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1108588202}
   m_CullTransparentMesh: 1
+--- !u!114 &1108588208
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1108588202}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: cfabb0440166ab443bba8876756fdfa9, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Shadow
+  m_EffectColor: {r: 0, g: 0, b: 0, a: 0.5}
+  m_EffectDistance: {x: 1, y: -7.53}
+  m_UseGraphicAlpha: 1
 --- !u!1 &1150797551
 GameObject:
   m_ObjectHideFlags: 0
@@ -3970,6 +4002,7 @@ GameObject:
   - component: {fileID: 1487119419}
   - component: {fileID: 1487119421}
   - component: {fileID: 1487119420}
+  - component: {fileID: 1487119422}
   m_Layer: 0
   m_Name: Label_Menu
   m_TagString: Untagged
@@ -3993,8 +4026,8 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
   m_AnchorMax: {x: 0, y: 0}
-  m_AnchoredPosition: {x: 180, y: 80}
-  m_SizeDelta: {x: 300, y: 80}
+  m_AnchoredPosition: {x: 159.7, y: 150.5}
+  m_SizeDelta: {x: 484.8, y: 80}
   m_Pivot: {x: 0, y: 0}
 --- !u!114 &1487119420
 MonoBehaviour:
@@ -4018,15 +4051,15 @@ MonoBehaviour:
       m_Calls: []
   m_text: Menu
   m_isRightToLeft: 0
-  m_fontAsset: {fileID: 11400000, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
-  m_sharedMaterial: {fileID: 1266111448}
+  m_fontAsset: {fileID: 11400000, guid: 15952d2ec588a4fe3aac10dcefe87e15, type: 2}
+  m_sharedMaterial: {fileID: 5655052135919816344, guid: 15952d2ec588a4fe3aac10dcefe87e15, type: 2}
   m_fontSharedMaterials: []
   m_fontMaterial: {fileID: 1266111448}
   m_fontMaterials: []
   m_fontColor32:
     serializedVersion: 2
-    rgba: 4281561907
-  m_fontColor: {r: 0.2, g: 0.45, b: 0.2, a: 1}
+    rgba: 4283001238
+  m_fontColor: {r: 0.5882353, g: 0.4117647, b: 0.28627452, a: 1}
   m_enableVertexGradient: 0
   m_colorMode: 3
   m_fontColorGradient:
@@ -4043,8 +4076,8 @@ MonoBehaviour:
   m_faceColor:
     serializedVersion: 2
     rgba: 4294967295
-  m_fontSize: 72
-  m_fontSizeBase: 72
+  m_fontSize: 200
+  m_fontSizeBase: 200
   m_fontWeight: 400
   m_enableAutoSizing: 0
   m_fontSizeMin: 18
@@ -4096,6 +4129,21 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1487119418}
   m_CullTransparentMesh: 1
+--- !u!114 &1487119422
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1487119418}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: cfabb0440166ab443bba8876756fdfa9, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Shadow
+  m_EffectColor: {r: 0, g: 0, b: 0, a: 0.5}
+  m_EffectDistance: {x: 1, y: -2.69}
+  m_UseGraphicAlpha: 1
 --- !u!1 &1538139972
 GameObject:
   m_ObjectHideFlags: 0
@@ -4466,7 +4514,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Image
   m_Material: {fileID: 0}
-  m_Color: {r: 0.55, g: 0.78, b: 0.55, a: 1}
+  m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_RaycastTarget: 1
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
   m_Maskable: 1
@@ -4550,8 +4598,8 @@ MonoBehaviour:
       m_Calls: []
   m_text: BOUTIQUE
   m_isRightToLeft: 0
-  m_fontAsset: {fileID: 11400000, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
-  m_sharedMaterial: {fileID: 414630642}
+  m_fontAsset: {fileID: 11400000, guid: 15952d2ec588a4fe3aac10dcefe87e15, type: 2}
+  m_sharedMaterial: {fileID: 5655052135919816344, guid: 15952d2ec588a4fe3aac10dcefe87e15, type: 2}
   m_fontSharedMaterials: []
   m_fontMaterial: {fileID: 414630642}
   m_fontMaterials: []
@@ -4575,8 +4623,8 @@ MonoBehaviour:
   m_faceColor:
     serializedVersion: 2
     rgba: 4294967295
-  m_fontSize: 40
-  m_fontSizeBase: 40
+  m_fontSize: 65
+  m_fontSizeBase: 65
   m_fontWeight: 400
   m_enableAutoSizing: 0
   m_fontSizeMin: 18
@@ -4687,8 +4735,8 @@ MonoBehaviour:
       m_Calls: []
   m_text: REGLAGE
   m_isRightToLeft: 0
-  m_fontAsset: {fileID: 11400000, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
-  m_sharedMaterial: {fileID: 389658822}
+  m_fontAsset: {fileID: 11400000, guid: 15952d2ec588a4fe3aac10dcefe87e15, type: 2}
+  m_sharedMaterial: {fileID: 5655052135919816344, guid: 15952d2ec588a4fe3aac10dcefe87e15, type: 2}
   m_fontSharedMaterials: []
   m_fontMaterial: {fileID: 389658822}
   m_fontMaterials: []
@@ -4712,8 +4760,8 @@ MonoBehaviour:
   m_faceColor:
     serializedVersion: 2
     rgba: 4294967295
-  m_fontSize: 40
-  m_fontSizeBase: 40
+  m_fontSize: 70
+  m_fontSizeBase: 70
   m_fontWeight: 400
   m_enableAutoSizing: 0
   m_fontSizeMin: 18
@@ -5007,6 +5055,7 @@ GameObject:
   - component: {fileID: 1943415754}
   - component: {fileID: 1943415753}
   - component: {fileID: 1943415752}
+  - component: {fileID: 1943415756}
   m_Layer: 0
   m_Name: Button_Jouer
   m_TagString: Untagged
@@ -5148,6 +5197,21 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1943415750}
   m_CullTransparentMesh: 1
+--- !u!114 &1943415756
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1943415750}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: cfabb0440166ab443bba8876756fdfa9, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Shadow
+  m_EffectColor: {r: 0, g: 0, b: 0, a: 0.5}
+  m_EffectDistance: {x: 1, y: -7.03}
+  m_UseGraphicAlpha: 1
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0
