@@ -32,6 +32,64 @@ public static class UISetupBuilder
     static readonly Color CFondVert = new Color(0.55f, 0.78f, 0.55f);    // placeholder fond
     static readonly Color CSliderBg = new Color(0.85f, 0.65f, 0.45f);    // barre sliders
 
+    // ── Application du fond menu sur le Background de la scène ──────────────
+    [MenuItem("Tools/UI/Appliquer Fond Menu")]
+    public static void AppliquerFondMenu()
+    {
+        AssetDatabase.Refresh();
+
+        Sprite sprite = ChargerSpriteFondMenu();
+        if (sprite == null)
+        {
+            EditorUtility.DisplayDialog("Fond introuvable",
+                "Aucun fichier 'fond*' trouvé.\n\n" +
+                "Vérifie le nom (fond-menu.png, fond_menu.jpg, fondmenu.png, etc.) " +
+                "et place-le dans Assets/.", "OK");
+            return;
+        }
+
+        int n = 0;
+        foreach (var img in Object.FindObjectsByType<Image>(FindObjectsSortMode.None))
+        {
+            if (img.gameObject.name != "Background") continue;
+            // On ne change QUE le sprite — color, preserveAspect, type, rectTransform
+            // restent comme tu les as réglés à la main.
+            img.sprite = sprite;
+            n++;
+        }
+        if (n > 0) UnityEditor.SceneManagement.EditorSceneManager.MarkAllScenesDirty();
+        EditorUtility.DisplayDialog("Fond Menu",
+            n + " Background mis à jour.\n" +
+            (n == 0 ? "Astuce : ouvre la scène MainMenu d'abord." : ""), "OK");
+    }
+
+    static Sprite ChargerSpriteFondMenu()
+    {
+        string[] extensions = { ".png", ".jpg", ".jpeg" };
+        string[] prefixes = { "fond-menu", "fond_menu", "fondmenu", "fond" };
+
+        if (!System.IO.Directory.Exists("Assets")) return null;
+
+        foreach (var ext in extensions)
+        {
+            string[] fichiers = System.IO.Directory.GetFiles("Assets", "*" + ext,
+                                                              System.IO.SearchOption.AllDirectories);
+            foreach (var fichier in fichiers)
+            {
+                if (fichier.Contains("Pure Poly") || fichier.Contains("BOXOPHOBIC")) continue;
+                string nom = System.IO.Path.GetFileNameWithoutExtension(fichier).ToLower();
+                foreach (var p in prefixes)
+                {
+                    if (!nom.StartsWith(p)) continue;
+                    string path = fichier.Replace('\\', '/');
+                    Sprite s = ChargerEtForcerSprite(path);
+                    if (s != null) { Debug.Log("[FondMenu] Trouvé : " + path); return s; }
+                }
+            }
+        }
+        return null;
+    }
+
     // ── Application du logo sur les Logo_KGarden de la scène ─────────────────
     [MenuItem("Tools/UI/Appliquer Logo K-Garden")]
     public static void AppliquerLogo()
