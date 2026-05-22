@@ -36,9 +36,19 @@ public class SeedUnlockManager : MonoBehaviour
     public bool seedLevel3Debloque = false;
     public bool seedCarnivoreDebloque = false;
 
-    // ── Auto-instanciation au chargement de la scène ─────────────────────────
-    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
-    static void AutoInit()
+    // ── Auto-instanciation à chaque chargement de scène ──────────────────────
+    // RuntimeInitializeOnLoadMethod ne s'exécute qu'une fois au démarrage de
+    // l'app. Pour gérer le cas "MainMenu → scene de jeu", on s'abonne à
+    // SceneManager.sceneLoaded qui se déclenche à CHAQUE chargement.
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+    static void EnregistrerCallbackScene()
+    {
+        UnityEngine.SceneManagement.SceneManager.sceneLoaded -= OnSceneLoaded;
+        UnityEngine.SceneManagement.SceneManager.sceneLoaded += OnSceneLoaded;
+    }
+
+    static void OnSceneLoaded(UnityEngine.SceneManagement.Scene scene,
+                              UnityEngine.SceneManagement.LoadSceneMode mode)
     {
         // N'auto-init que dans une scène de gameplay : si aucun Pot n'existe,
         // on est probablement dans un menu — pas besoin de l'inventaire.
@@ -49,7 +59,7 @@ public class SeedUnlockManager : MonoBehaviour
         if (gm.GetComponent<InventoryManager>() == null) gm.AddComponent<InventoryManager>();
         if (gm.GetComponent<SimpleUIMessage>() == null) gm.AddComponent<SimpleUIMessage>();
         if (gm.GetComponent<SeedUnlockManager>() == null) gm.AddComponent<SeedUnlockManager>();
-        Debug.Log("[SeedUnlockManager] Auto-initialisé.");
+        Debug.Log("[SeedUnlockManager] Auto-initialisé pour scène '" + scene.name + "'.");
     }
 
     void Start()
