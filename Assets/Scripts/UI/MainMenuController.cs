@@ -14,7 +14,7 @@ public class MainMenuController : MonoBehaviour
     public GameObject panelSettings;
 
     [Header("Scène à charger pour Jouer")]
-    public string nomSceneJeu = "scene 21 05";
+    public string nomSceneJeu = "scene";
 
     public void Jouer()
     {

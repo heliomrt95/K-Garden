@@ -36,12 +36,22 @@ public static class UISetupBuilder
     [MenuItem("Tools/UI/Appliquer Logo K-Garden")]
     public static void AppliquerLogo()
     {
+        Debug.Log("[Logo] === AppliquerLogo v3 démarré ===");
+
+        // Force Unity à scanner le filesystem (au cas où le fichier vient d'être ajouté)
+        AssetDatabase.Refresh();
+
         Sprite sprite = ChargerSpriteLogo();
         if (sprite == null)
         {
+            // Liste les PNG racines pour debug dans la console
+            string[] pngs = System.IO.Directory.GetFiles("Assets", "*.png", System.IO.SearchOption.TopDirectoryOnly);
+            Debug.Log("[Logo] PNG détectés à la racine d'Assets/ (" + pngs.Length + ") :");
+            foreach (var p in pngs) Debug.Log("  - " + p);
+
             EditorUtility.DisplayDialog("Logo introuvable",
-                "Aucun logo trouvé. Essayé : Assets/logo.png, Assets/Logo.png, Assets/logo 1.png.\n" +
-                "Place ton logo et relance.", "OK");
+                "Aucun fichier 'logo*.png' trouvé.\n\n" +
+                "Vérifie dans la Console les PNG détectés à la racine d'Assets/.", "OK");
             return;
         }
 
@@ -60,34 +70,67 @@ public static class UISetupBuilder
 
     static Sprite ChargerSpriteLogo()
     {
-        // Cherche n'importe quel asset Texture2D dont le nom commence par "logo"
-        // (insensible à la casse), peu importe où il est dans Assets/
+        // Stratégie 1 : parcours direct du filesystem (le plus fiable).
+        // On cherche n'importe quel logo*.png à la racine d'Assets/
+        if (System.IO.Directory.Exists("Assets"))
+        {
+            string[] fichiers = System.IO.Directory.GetFiles("Assets", "*.png",
+                                                             System.IO.SearchOption.TopDirectoryOnly);
+            foreach (var fichier in fichiers)
+            {
+                string nom = System.IO.Path.GetFileNameWithoutExtension(fichier).ToLower();
+                if (!nom.StartsWith("logo")) continue;
+
+                // Normalise le chemin pour AssetDatabase (slashes /)
+                string path = fichier.Replace('\\', '/');
+                Sprite s = ChargerEtForcerSprite(path);
+                if (s != null) { Debug.Log("[Logo] Trouvé : " + path); return s; }
+            }
+        }
+
+        // Stratégie 2 : fallback AssetDatabase (au cas où le logo est dans un sous-dossier)
         string[] guids = AssetDatabase.FindAssets("logo t:Texture2D");
         foreach (var guid in guids)
         {
             string path = AssetDatabase.GUIDToAssetPath(guid);
-            // Ignore les sous-packs (Pure Poly, BOXOPHOBIC, etc.) pour ne pas
-            // attraper un logo de pack par erreur
             if (path.Contains("Pure Poly") || path.Contains("BOXOPHOBIC")) continue;
-
             string nom = System.IO.Path.GetFileNameWithoutExtension(path).ToLower();
             if (!nom.StartsWith("logo")) continue;
 
-            // Force l'import en Sprite
-            TextureImporter ti = AssetImporter.GetAtPath(path) as TextureImporter;
-            if (ti != null && ti.textureType != TextureImporterType.Sprite)
-            {
-                ti.textureType = TextureImporterType.Sprite;
-                ti.SaveAndReimport();
-            }
-            Sprite s = AssetDatabase.LoadAssetAtPath<Sprite>(path);
-            if (s != null)
-            {
-                Debug.Log("[Logo] Trouvé : " + path);
-                return s;
-            }
+            Sprite s = ChargerEtForcerSprite(path);
+            if (s != null) { Debug.Log("[Logo] Trouvé : " + path); return s; }
         }
+
         return null;
+    }
+
+    static Sprite ChargerEtForcerSprite(string path)
+    {
+        // Force l'import au cas où l'asset ne soit pas encore reconnu
+        AssetDatabase.ImportAsset(path, ImportAssetOptions.ForceSynchronousImport);
+
+        TextureImporter ti = AssetImporter.GetAtPath(path) as TextureImporter;
+        if (ti == null)
+        {
+            Debug.LogWarning("[Logo] " + path + " : TextureImporter introuvable.");
+            return null;
+        }
+
+        if (ti.textureType != TextureImporterType.Sprite)
+        {
+            ti.textureType = TextureImporterType.Sprite;
+            ti.spriteImportMode = SpriteImportMode.Single;
+            ti.SaveAndReimport();
+            AssetDatabase.Refresh();
+        }
+
+        Sprite s = AssetDatabase.LoadAssetAtPath<Sprite>(path);
+        if (s == null)
+        {
+            Debug.LogWarning("[Logo] " + path + " : LoadAssetAtPath<Sprite> a renvoyé null. " +
+                             "Type actuel : " + ti.textureType + " / " + ti.spriteImportMode);
+        }
+        return s;
     }
 
     static void AppliquerSpriteSurLogo(Image img, Sprite sprite)
