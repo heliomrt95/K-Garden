@@ -18,7 +18,8 @@ public static class SachetRuntimeBuilder
         switch (niveau)
         {
             case 2: cPot = new Color(0.40f, 0.30f, 0.55f); cGraines = new Color(0.60f, 0.45f, 0.85f); break;
-            case 3: cPot = new Color(0.20f, 0.45f, 0.55f); cGraines = new Color(0.30f, 0.85f, 0.75f); break;
+            case 3: cPot = new Color(0.18f, 0.30f, 0.55f); cGraines = new Color(0.30f, 0.55f, 0.95f); break;
+            case 4: cPot = new Color(0.20f, 0.05f, 0.05f); cGraines = new Color(0.85f, 0.15f, 0.15f); break;
             default: cPot = new Color(0.55f, 0.35f, 0.20f); cGraines = new Color(0.65f, 0.48f, 0.22f); break;
         }
 

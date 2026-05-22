@@ -35,6 +35,12 @@ public static class PlantReward
             InventoryManager.Instance.AddItem("cristalVegetal", 1);
             SimpleUIMessage.Afficher("Récolte plante N3 : +1 cristal végétal !");
         }
+        else if (niveau == 4)
+        {
+            // Plante carnivore : objectif final, pas de drop matériel pour
+            // l'instant — juste un message glorieux.
+            SimpleUIMessage.Afficher("La plante carnivore a atteint sa maturité !");
+        }
         else
         {
             Debug.LogWarning("PlantReward : niveau inconnu : " + niveau);
