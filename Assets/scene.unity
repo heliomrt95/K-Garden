@@ -25786,8 +25786,34 @@ PrefabInstance:
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
-    m_AddedComponents: []
+    m_AddedComponents:
+    - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: 51f419df0f0bc404a899c1428550be41, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 934521300}
   m_SourcePrefab: {fileID: 100100000, guid: 51f419df0f0bc404a899c1428550be41, type: 3}
+--- !u!1 &934521299 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 919132149155446097, guid: 51f419df0f0bc404a899c1428550be41, type: 3}
+  m_PrefabInstance: {fileID: 934521298}
+  m_PrefabAsset: {fileID: 0}
+--- !u!114 &934521300
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 934521299}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 721003bde41794227bb37c859d30cc0b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::PorteFinale
+  mode: 0
+  delaiAvantAction: 1
+  dureeAnimation: 1.5
+  angleOuverture: 95
+  axeRotation: {x: 0, y: 1, z: 0}
+  serreADesactiver: {fileID: 0}
 --- !u!1 &934718753
 GameObject:
   m_ObjectHideFlags: 0
